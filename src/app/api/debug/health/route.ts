@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 import pg from "pg";
 
-const DEPLOY_MARKER = "direct-conn-bypass-supavisor";
+const DEPLOY_MARKER = "fix-pooler-hostname-aws1";
 
 export async function GET() {
   const result: Record<string, unknown> = {
