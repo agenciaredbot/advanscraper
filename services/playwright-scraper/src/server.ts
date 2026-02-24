@@ -1,3 +1,9 @@
+// Early startup log — if you never see this, the container didn't boot at all
+console.log("🔄 Starting Playwright Scraper Microservice...");
+console.log(`   Node ${process.version} | PID ${process.pid}`);
+console.log(`   PORT=${process.env.PORT || "(not set, defaulting to 3001)"}`);
+console.log(`   API_KEY=${process.env.API_KEY ? "✅ set" : "❌ MISSING"}`);
+
 import Fastify from "fastify";
 import { scrapeGoogleMaps, type GoogleMapsResult } from "./scrapers/google-maps.js";
 import { scrapeLinkedIn, type LinkedInResult } from "./scrapers/linkedin.js";
@@ -8,8 +14,9 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  console.error("❌ API_KEY environment variable is required");
-  process.exit(1);
+  console.error("⚠️  WARNING: API_KEY environment variable is not set!");
+  console.error("   Auth will reject all /scrape/* requests.");
+  // Don't exit — let the health endpoint still work so Railway sees it's alive
 }
 
 // --- Fastify Instance ---
@@ -22,7 +29,7 @@ const fastify = Fastify({
 fastify.addHook("onRequest", async (request, reply) => {
   if (request.url.startsWith("/scrape")) {
     const key = request.headers["x-api-key"];
-    if (key !== API_KEY) {
+    if (!API_KEY || key !== API_KEY) {
       reply.code(401).send({ error: "Invalid or missing API key" });
     }
   }
@@ -147,6 +154,17 @@ const shutdown = async (signal: string) => {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// Catch uncaught errors so we see them in logs
+process.on("uncaughtException", (err) => {
+  console.error("💥 Uncaught exception:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 Unhandled rejection:", reason);
+  process.exit(1);
+});
 
 // --- Start Server ---
 const start = async () => {
