@@ -10,9 +10,27 @@ const PLAYWRIGHT_SERVICE_URL =
 const PLAYWRIGHT_API_KEY =
   process.env.PLAYWRIGHT_SERVICE_API_KEY || "";
 
-// Reuse the existing interfaces
-import type { GoogleMapsResult } from "./google-maps";
-import type { LinkedInResult } from "./linkedin";
+// Interfaces (inlined to avoid dependency on playwright-importing legacy files)
+export interface GoogleMapsResult {
+  businessName: string;
+  category: string | null;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  website: string | null;
+  email: string | null;
+  rating: number | null;
+  reviewsCount: number | null;
+  profileUrl: string | null;
+}
+
+export interface LinkedInResult {
+  contactPerson: string;
+  contactTitle: string | null;
+  company: string | null;
+  city: string | null;
+  profileUrl: string;
+}
 
 /**
  * Check if the Playwright microservice is running
