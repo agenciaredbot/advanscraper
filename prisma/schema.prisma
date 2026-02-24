@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// Profile sincronizado con Supabase Auth (auth.users)
+model Profile {
+  id             String   @id @db.Uuid
+  email          String   @unique
+  name           String?
+  brevoApiKey    String?
+  sendsparkApiKey    String?
+  sendsparkApiSecret String?
+  anthropicApiKey    String?
+  apifyApiToken      String?
+  dailyLimit     Int      @default(50)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  searches       Search[]
+  leads          Lead[]
+  exports        Export[]
+  templates      MessageTemplate[]
+  outreachLogs   OutreachLog[]
+  loomVideos     LoomVideo[]
+  leadLists      LeadList[]
+  campaigns      Campaign[]
+}
+
+model Search {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  user         Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source       String
+  query        String
+  location     String?
+  filters      String?
+  status       String    @default("pending")
+  totalResults Int       @default(0)
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+  leads        Lead[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Lead {
+  id              String    @id @default(uuid()) @db.Uuid
+  searchId        String?   @db.Uuid
+  search          Search?   @relation(fields: [searchId], references: [id], onDelete: SetNull)
+  userId          String    @db.Uuid
+  user            Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source          String
+  businessName    String?
+  contactPerson   String?
+  contactTitle    String?
+  email           String?
+  phone           String?
+  website         String?
+  address         String?
+  city            String?
+  country         String?
+  category        String?
+  rating          Float?
+  reviewsCount    Int?
+  followers       Int?
+  isBusiness      Boolean?
+  bio             String?
+  profileUrl      String?
+  rawData         String?
+  scrapedAt       DateTime  @default(now())
+
+  outreachLogs    OutreachLog[]
+  listItems       LeadListItem[]
+  campaignLeads   CampaignLead[]
+
+  @@unique([userId, source, profileUrl])
+  @@index([userId])
+  @@index([searchId])
+  @@index([source])
+  @@index([email])
+  @@index([city])
+}
+
+model LeadList {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String?   @default("#3B82F6")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  items       LeadListItem[]
+
+  @@index([userId])
+}
+
+model LeadListItem {
+  id       String   @id @default(uuid()) @db.Uuid
+  leadId   String   @db.Uuid
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  listId   String   @db.Uuid
+  list     LeadList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  addedAt  DateTime @default(now())
+
+  @@unique([leadId, listId])
+  @@index([listId])
+  @@index([leadId])
+}
+
+model Campaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  channel     String
+  templateId  String?   @db.Uuid
+  template    MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  status      String    @default("draft")
+  totalLeads  Int       @default(0)
+  sentCount   Int       @default(0)
+  failedCount Int       @default(0)
+  includeVideo Boolean  @default(false)
+  videoType    String?
+  videoId      String?
+  useAI       Boolean   @default(false)
+  aiInstructions String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  campaignLeads CampaignLead[]
+  outreachLogs  OutreachLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model CampaignLead {
+  id           String    @id @default(uuid()) @db.Uuid
+  campaignId   String    @db.Uuid
+  campaign     Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId       String    @db.Uuid
+  lead         Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status       String    @default("pending")
+  message      String?
+  sentAt       DateTime?
+  errorMessage String?
+
+  @@unique([campaignId, leadId])
+  @@index([campaignId])
+  @@index([leadId])
+  @@index([status])
+}
+
+model MessageTemplate {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  user         Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  channel      String
+  subject      String?
+  bodyShort    String?
+  bodyLong     String
+  includeVideo Boolean  @default(false)
+  videoType    String?
+  videoId      String?
+  useAI        Boolean  @default(false)
+  aiInstructions String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campaigns    Campaign[]
+
+  @@index([userId])
+  @@index([channel])
+}
+
+model OutreachLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  user           Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId         String    @db.Uuid
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaignId     String?   @db.Uuid
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  channel        String
+  action         String
+  templateId     String?
+  messagePreview String?
+  videoLink      String?
+  brevoMessageId String?
+  status         String
+  sentAt         DateTime  @default(now())
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  errorMessage   String?
+
+  @@index([userId])
+  @@index([leadId])
+  @@index([campaignId])
+  @@index([channel])
+}
+
+model LoomVideo {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  user         Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareUrl     String
+  embedUrl     String
+  title        String
+  thumbnailUrl String
+  duration     Int
+  label        String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Export {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchId   String?
+  exportType String
+  fileName   String?
+  sheetUrl   String?
+  totalLeads Int
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
