@@ -7,6 +7,12 @@ console.log(`   API_KEY=${process.env.API_KEY ? "✅ set" : "❌ MISSING"}`);
 import Fastify from "fastify";
 import { scrapeGoogleMaps, type GoogleMapsResult } from "./scrapers/google-maps.js";
 import { scrapeLinkedIn, type LinkedInResult } from "./scrapers/linkedin.js";
+import {
+  scrapeInstagramProfile,
+  searchInstagramProfiles,
+  scrapeInstagramBulk,
+  type InstagramProfile,
+} from "./scrapers/instagram.js";
 import { browserPool } from "./browser/pool.js";
 
 // --- Config ---
@@ -142,6 +148,105 @@ fastify.post<{ Body: LinkedInBody }>("/scrape/linkedin", async (request, reply) 
       error: errorMsg,
       duration,
     });
+  }
+});
+
+// --- Instagram: Single Profile ---
+interface InstagramProfileBody {
+  username: string;
+}
+
+fastify.post<{ Body: InstagramProfileBody }>("/scrape/profile", async (request, reply) => {
+  const { username } = request.body || {};
+
+  if (!username || typeof username !== "string" || username.trim().length === 0) {
+    return reply.code(400).send({ error: "Field 'username' is required" });
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const cleanUsername = username.trim().replace("@", "");
+    console.log(`\n📸 Instagram profile request: @${cleanUsername}`);
+
+    const profile: InstagramProfile | null = await scrapeInstagramProfile(cleanUsername);
+    const duration = Date.now() - startTime;
+
+    if (!profile) {
+      console.log(`⚠️ Instagram profile not found: @${cleanUsername} (${duration}ms)`);
+      return reply.code(404).send({ error: "Profile not found or private", duration });
+    }
+
+    console.log(`✅ Instagram profile scraped: @${cleanUsername} in ${duration}ms`);
+    return profile; // Return directly to match the expected interface
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ Instagram profile failed after ${duration}ms:`, errorMsg);
+    return reply.code(500).send({ error: errorMsg, duration });
+  }
+});
+
+// --- Instagram: Search ---
+interface InstagramSearchBody {
+  query: string;
+  limit?: number;
+}
+
+fastify.post<{ Body: InstagramSearchBody }>("/scrape/search", async (request, reply) => {
+  const { query, limit = 20 } = request.body || {};
+
+  if (!query || typeof query !== "string" || query.trim().length === 0) {
+    return reply.code(400).send({ error: "Field 'query' is required" });
+  }
+
+  const cappedLimit = Math.min(Math.max(1, limit), 30);
+  const startTime = Date.now();
+
+  try {
+    console.log(`\n📸 Instagram search request: "${query}" (max: ${cappedLimit})`);
+
+    const profiles: InstagramProfile[] = await searchInstagramProfiles(query.trim(), cappedLimit);
+    const duration = Date.now() - startTime;
+
+    console.log(`✅ Instagram search completed: ${profiles.length} profiles in ${duration}ms`);
+    return { profiles, count: profiles.length, duration };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ Instagram search failed after ${duration}ms:`, errorMsg);
+    return reply.code(500).send({ error: errorMsg, duration });
+  }
+});
+
+// --- Instagram: Bulk ---
+interface InstagramBulkBody {
+  usernames: string[];
+}
+
+fastify.post<{ Body: InstagramBulkBody }>("/scrape/bulk", async (request, reply) => {
+  const { usernames } = request.body || {};
+
+  if (!usernames || !Array.isArray(usernames) || usernames.length === 0) {
+    return reply.code(400).send({ error: "Field 'usernames' must be a non-empty array" });
+  }
+
+  const cappedUsernames = usernames.slice(0, 30);
+  const startTime = Date.now();
+
+  try {
+    console.log(`\n📸 Instagram bulk request: ${cappedUsernames.length} profiles`);
+
+    const profiles: InstagramProfile[] = await scrapeInstagramBulk(cappedUsernames);
+    const duration = Date.now() - startTime;
+
+    console.log(`✅ Instagram bulk completed: ${profiles.length}/${cappedUsernames.length} in ${duration}ms`);
+    return { profiles, count: profiles.length, duration };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ Instagram bulk failed after ${duration}ms:`, errorMsg);
+    return reply.code(500).send({ error: errorMsg, duration });
   }
 });
 

@@ -1,14 +1,16 @@
 /**
- * Instagram Scraper — Client for Python microservice
+ * Instagram Scraper — Client for Playwright microservice on Railway
  *
- * The actual scraping is done by a Flask microservice running on port 5000
- * that uses Instaloader for data extraction.
+ * The actual scraping is done by the Playwright microservice
+ * that uses a stealth browser to extract public Instagram profiles.
  *
- * This module provides the Node.js API client.
+ * This module provides the HTTP client to call it.
  */
 
-const INSTAGRAM_SERVICE_URL =
-  process.env.INSTAGRAM_SERVICE_URL || "http://localhost:5000";
+const PLAYWRIGHT_SERVICE_URL =
+  process.env.PLAYWRIGHT_SERVICE_URL || "http://localhost:3001";
+const PLAYWRIGHT_API_KEY =
+  process.env.PLAYWRIGHT_SERVICE_API_KEY || "";
 
 export interface InstagramProfile {
   username: string;
@@ -28,11 +30,11 @@ export interface InstagramProfile {
 }
 
 /**
- * Check if the Instagram microservice is running
+ * Check if the Instagram scraping service (Playwright microservice) is running
  */
 export async function checkInstagramService(): Promise<boolean> {
   try {
-    const res = await fetch(`${INSTAGRAM_SERVICE_URL}/health`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     return res.ok;
@@ -48,12 +50,17 @@ export async function scrapeInstagramProfile(
   username: string
 ): Promise<InstagramProfile | null> {
   try {
-    const res = await fetch(`${INSTAGRAM_SERVICE_URL}/scrape/profile`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/profile`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": PLAYWRIGHT_API_KEY,
+      },
       body: JSON.stringify({ username }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     });
+
+    if (res.status === 404) return null;
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
@@ -75,11 +82,14 @@ export async function searchInstagramProfiles(
   limit: number = 20
 ): Promise<InstagramProfile[]> {
   try {
-    const res = await fetch(`${INSTAGRAM_SERVICE_URL}/scrape/search`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/search`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": PLAYWRIGHT_API_KEY,
+      },
       body: JSON.stringify({ query, limit }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(180000), // 3 min — search + scrape each profile
     });
 
     if (!res.ok) {
@@ -101,11 +111,14 @@ export async function scrapeInstagramBulk(
   usernames: string[]
 ): Promise<InstagramProfile[]> {
   try {
-    const res = await fetch(`${INSTAGRAM_SERVICE_URL}/scrape/bulk`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/bulk`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": PLAYWRIGHT_API_KEY,
+      },
       body: JSON.stringify({ usernames }),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(180000), // 3 min
     });
 
     if (!res.ok) {
