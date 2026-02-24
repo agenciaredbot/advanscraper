@@ -53,36 +53,44 @@ export async function scrapeGoogleMaps(
     context = stealth.context;
     const page = await context.newPage();
 
-    // Navigate to Google Maps
-    console.log("[google-maps] Navigating to Google Maps...");
-    await page.goto("https://www.google.com/maps", {
+    // Compose search query and navigate directly to search URL
+    const searchQuery = location ? `${query} en ${location}` : query;
+    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}/`;
+    console.log(`[google-maps] Navigating directly to: ${searchUrl}`);
+
+    await page.goto(searchUrl, {
       waitUntil: "domcontentloaded",
-      timeout: 30000,
+      timeout: 45000,
     });
     await shortDelay();
 
-    // Accept cookies if present
+    // Accept cookies/consent if present (try multiple languages)
     try {
-      const acceptButton = page.locator('button:has-text("Accept all")');
-      if (await acceptButton.isVisible({ timeout: 3000 })) {
-        await acceptButton.click();
-        await shortDelay();
+      const consentSelectors = [
+        'button:has-text("Accept all")',
+        'button:has-text("Aceptar todo")',
+        'button:has-text("Acepto")',
+        'button:has-text("Tout accepter")',
+        'form[action*="consent"] button',
+      ];
+      for (const sel of consentSelectors) {
+        const btn = page.locator(sel).first();
+        if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await btn.click();
+          console.log(`[google-maps] Clicked consent button: ${sel}`);
+          await shortDelay();
+          break;
+        }
       }
     } catch {
       // No cookie banner
     }
 
-    // Compose search query
-    const searchQuery = location ? `${query} en ${location}` : query;
-    console.log(`[google-maps] Searching: "${searchQuery}"`);
+    // Log current page state for debugging
+    console.log(`[google-maps] Page URL: ${page.url()}`);
+    console.log(`[google-maps] Page title: ${await page.title()}`);
 
-    // Type search query
-    const searchBox = page.locator(S.searchBox);
-    await searchBox.click();
-    await humanDelay(300, 700);
-    await searchBox.fill(searchQuery);
-    await humanDelay(500, 1000);
-    await page.keyboard.press("Enter");
+    // Wait for results to appear (give extra time since we navigated directly)
     await page.waitForTimeout(3000);
 
     // Wait for results to load
