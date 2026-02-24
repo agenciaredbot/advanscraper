@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { prisma, getOrCreateProfile } from "@/lib/db";
 
-// GET — Get profile settings
+// GET — Get profile settings (auto-creates profile if not found)
 export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } });
-    if (!profile) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
+    const profile = await getOrCreateProfile(user.id, user.email ?? "", user.user_metadata?.name);
 
     // Don't return full API keys, just indicate if set
     return NextResponse.json({
@@ -51,9 +50,18 @@ export async function PUT(request: NextRequest) {
     if (body.anthropicApiKey !== undefined) updateData.anthropicApiKey = body.anthropicApiKey || null;
     if (body.apifyApiToken !== undefined) updateData.apifyApiToken = body.apifyApiToken || null;
 
-    const profile = await prisma.profile.update({
+    const profile = await prisma.profile.upsert({
       where: { id: user.id },
-      data: updateData,
+      update: updateData,
+      create: {
+        id: user.id,
+        email: user.email ?? "",
+        name: "",
+        role: "user",
+        isActive: true,
+        dailyLimit: 50,
+        ...updateData,
+      },
     });
 
     return NextResponse.json({

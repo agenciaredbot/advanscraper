@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { prisma, getOrCreateProfile } from "@/lib/db";
 import { generateMessage } from "@/lib/ai/message-generator";
 import type { GenerateMessageRequest } from "@/lib/ai/types";
 
@@ -20,12 +20,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's API key if available
-    const profile = await prisma.profile.findUnique({
-      where: { id: user.id },
-      select: { anthropicApiKey: true },
-    });
-
-    const apiKey = profile?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    const profile = await getOrCreateProfile(user.id, user.email ?? "");
+    const apiKey = profile.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: "Configura tu API key de Anthropic en Settings o .env" },

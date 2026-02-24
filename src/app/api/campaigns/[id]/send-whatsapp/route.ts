@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { prisma, getOrCreateProfile } from "@/lib/db";
 import { sendWhatsAppCampaign, WhatsAppCampaignMessage } from "@/lib/outreach/whatsapp";
 import { generateMessage, replacePlaceholders } from "@/lib/ai/message-generator";
 import type { LeadContext } from "@/lib/ai/types";
@@ -37,8 +37,8 @@ export async function POST(
       return NextResponse.json({ error: "No hay leads pendientes" }, { status: 400 });
     }
 
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } });
-    const anthropicKey = profile?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    const profile = await getOrCreateProfile(user.id, user.email ?? "");
+    const anthropicKey = profile.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
 
     // Update campaign status
     await prisma.campaign.update({

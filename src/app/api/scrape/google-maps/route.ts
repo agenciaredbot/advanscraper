@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { prisma, getOrCreateProfile } from "@/lib/db";
 import {
   createJob,
   updateJobStatus,
@@ -37,16 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check daily limit
-    const profile = await prisma.profile.findUnique({
-      where: { id: user.id },
-    });
-
-    if (!profile) {
-      return NextResponse.json(
-        { error: "Perfil no encontrado" },
-        { status: 404 }
-      );
-    }
+    const profile = await getOrCreateProfile(user.id, user.email ?? "");
 
     const todaySearches = await prisma.search.count({
       where: {

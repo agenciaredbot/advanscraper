@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { getOrCreateProfile } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 /**
@@ -20,11 +20,9 @@ export async function requireSuperadmin() {
     };
   }
 
-  const profile = await prisma.profile.findUnique({
-    where: { id: user.id },
-  });
+  const profile = await getOrCreateProfile(user.id, user.email ?? "", user.user_metadata?.name);
 
-  if (!profile || profile.role !== "superadmin") {
+  if (profile.role !== "superadmin") {
     return {
       error: NextResponse.json({ error: "Acceso denegado" }, { status: 403 }),
       user: null,

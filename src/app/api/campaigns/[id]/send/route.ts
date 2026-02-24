@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { prisma, getOrCreateProfile } from "@/lib/db";
 import { runEmailCampaign } from "@/lib/outreach/campaign-manager";
 
 // POST — Send campaign
@@ -30,11 +30,7 @@ export async function POST(
     }
 
     // Get user's API keys
-    const profile = await prisma.profile.findUnique({
-      where: { id: user.id },
-    });
-
-    if (!profile) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
+    const profile = await getOrCreateProfile(user.id, user.email ?? "");
 
     if (campaign.channel === "email") {
       const brevoKey = profile.brevoApiKey || process.env.BREVO_API_KEY;

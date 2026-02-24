@@ -17,3 +17,27 @@ function createPrismaClient() {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// Helper: Find or create a user profile (handles missing trigger scenarios)
+const ADMIN_EMAILS = ["agenciaredbot@gmail.com"];
+
+export async function getOrCreateProfile(userId: string, email: string, name?: string) {
+  let profile = await prisma.profile.findUnique({ where: { id: userId } });
+
+  if (!profile) {
+    profile = await prisma.profile.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        email,
+        name: name ?? "",
+        role: ADMIN_EMAILS.includes(email) ? "superadmin" : "user",
+        isActive: true,
+        dailyLimit: 50,
+      },
+    });
+  }
+
+  return profile;
+}
