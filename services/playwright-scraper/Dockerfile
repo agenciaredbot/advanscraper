@@ -7,12 +7,13 @@ COPY package.json package-lock.json* ./
 
 # Skip browser download — base image already has Chromium
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm ci --omit=dev
 
-# Copy source and build
+# Install ALL deps (including typescript for build), then compile, then prune
+RUN npm ci
 COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npx tsc
+RUN npm prune --omit=dev
 
 # Runtime config
 ENV NODE_ENV=production
