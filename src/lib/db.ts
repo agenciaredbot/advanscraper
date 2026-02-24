@@ -25,6 +25,7 @@ export async function getOrCreateProfile(userId: string, email: string, name?: s
   let profile = await prisma.profile.findUnique({ where: { id: userId } });
 
   if (!profile) {
+    // Profile doesn't exist — create it
     profile = await prisma.profile.upsert({
       where: { id: userId },
       update: {},
@@ -37,6 +38,34 @@ export async function getOrCreateProfile(userId: string, email: string, name?: s
         dailyLimit: 50,
       },
     });
+  } else {
+    // Profile exists — auto-heal bad data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fixes: Record<string, any> = {};
+
+    // Fix 1: email missing or empty → sync from auth
+    if ((!profile.email || profile.email === "") && email) {
+      fixes.email = email;
+    }
+
+    // Fix 2: name contains an email address → clear it (user can set their real name)
+    if (profile.name && profile.name.includes("@") && !name) {
+      fixes.name = "";
+    } else if (profile.name && profile.name.includes("@") && name && !name.includes("@")) {
+      fixes.name = name;
+    }
+
+    // Fix 3: admin email should always have superadmin role
+    if (email && ADMIN_EMAILS.includes(email) && profile.role !== "superadmin") {
+      fixes.role = "superadmin";
+    }
+
+    if (Object.keys(fixes).length > 0) {
+      profile = await prisma.profile.update({
+        where: { id: userId },
+        data: fixes,
+      });
+    }
   }
 
   return profile;
