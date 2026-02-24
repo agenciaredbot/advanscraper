@@ -9,27 +9,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // ALL Supavisor pooler strategies fail with "Tenant or user not found".
-  // Workaround: bypass Supavisor and connect directly to PostgreSQL.
-  // Direct URL format: db.PROJECT_REF.supabase.co:5432, username=postgres
-  let connString = connectionString;
-  try {
-    const u = new URL(connectionString);
-    const parts = u.username.split(".");
-    // Detect pooler URL: postgres.PROJECT_REF@*.pooler.supabase.com
-    if (parts.length === 2 && parts[0] === "postgres" && u.hostname.includes("pooler.supabase.com")) {
-      const projectRef = parts[1];
-      const direct = new URL(connectionString);
-      direct.hostname = `db.${projectRef}.supabase.co`;
-      direct.port = "5432";
-      direct.username = "postgres";  // Direct connections use plain 'postgres'
-      direct.search = "";            // Remove ?pgbouncer=true
-      connString = direct.toString();
-    }
-  } catch { /* fallback to original connectionString */ }
-
   const pool = new pg.Pool({
-    connectionString: connString,
+    connectionString,
     max: 1,                        // Serverless: 1 connection per instance
     idleTimeoutMillis: 20000,
     connectionTimeoutMillis: 5000,
