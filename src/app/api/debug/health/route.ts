@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 import pg from "pg";
 
-const DEPLOY_MARKER = "0d5132d-ssl-true-fix";
+const DEPLOY_MARKER = "direct-conn-bypass-supavisor";
 
 export async function GET() {
   const result: Record<string, unknown> = {
@@ -67,7 +67,43 @@ export async function GET() {
   // 6. Test DB WITHOUT ssl (in case Supavisor doesn't require it)
   result.dbNoSsl = await testPool(dbUrl, {}, "no-ssl");
 
-  // 7. Test Prisma (uses ssl:true from db.ts now)
+  // 6b. Test TRUE direct connection (bypass Supavisor entirely)
+  const username = parsedUrl?.username ?? "";
+  const projectRef = username.startsWith("postgres.") ? username.slice("postgres.".length) : "";
+  result.projectRef = projectRef;
+
+  if (projectRef) {
+    try {
+      const directUrl = new URL(dbUrl);
+      directUrl.hostname = `db.${projectRef}.supabase.co`;
+      directUrl.port = "5432";
+      directUrl.username = "postgres";
+      directUrl.search = "";
+      result.dbDirectConnection = await testPool(
+        directUrl.toString(),
+        { ssl: { rejectUnauthorized: false } },
+        `direct:db.${projectRef}.supabase.co:5432 (user=postgres)`
+      );
+    } catch (e) {
+      result.dbDirectConnection = { connected: false, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    // 6c. Test session-mode pooler (same pooler host, port 5432 instead of 6543)
+    try {
+      const sessionUrl = new URL(dbUrl);
+      sessionUrl.port = "5432";
+      sessionUrl.search = "";
+      result.dbSessionPooler = await testPool(
+        sessionUrl.toString(),
+        { ssl: { rejectUnauthorized: false } },
+        `session-pooler:${parsedUrl?.hostname}:5432`
+      );
+    } catch (e) {
+      result.dbSessionPooler = { connected: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  // 7. Test Prisma (now uses direct connection from db.ts)
   try {
     const start = Date.now();
     const count = await prisma.profile.count();

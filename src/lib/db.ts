@@ -9,12 +9,31 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
+  // ALL Supavisor pooler strategies fail with "Tenant or user not found".
+  // Workaround: bypass Supavisor and connect directly to PostgreSQL.
+  // Direct URL format: db.PROJECT_REF.supabase.co:5432, username=postgres
+  let connString = connectionString;
+  try {
+    const u = new URL(connectionString);
+    const parts = u.username.split(".");
+    // Detect pooler URL: postgres.PROJECT_REF@*.pooler.supabase.com
+    if (parts.length === 2 && parts[0] === "postgres" && u.hostname.includes("pooler.supabase.com")) {
+      const projectRef = parts[1];
+      const direct = new URL(connectionString);
+      direct.hostname = `db.${projectRef}.supabase.co`;
+      direct.port = "5432";
+      direct.username = "postgres";  // Direct connections use plain 'postgres'
+      direct.search = "";            // Remove ?pgbouncer=true
+      connString = direct.toString();
+    }
+  } catch { /* fallback to original connectionString */ }
+
   const pool = new pg.Pool({
-    connectionString,
-    max: 1,                        // Serverless: 1 conexión por instancia
-    idleTimeoutMillis: 20000,      // Cerrar idle después de 20s
-    connectionTimeoutMillis: 5000, // Timeout de conexión 5s
-    ssl: true, // SSL con SNI automático — requerido por Supabase Supavisor
+    connectionString: connString,
+    max: 1,                        // Serverless: 1 connection per instance
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 5000,
+    ssl: { rejectUnauthorized: false }, // Supabase uses self-signed certs
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
