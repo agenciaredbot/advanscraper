@@ -11,6 +11,8 @@ model Profile {
   id             String   @id @db.Uuid
   email          String   @unique
   name           String?
+  role           String   @default("user")
+  isActive       Boolean  @default(true)
   brevoApiKey    String?
   sendsparkApiKey    String?
   sendsparkApiSecret String?

@@ -17,6 +17,8 @@ export async function GET() {
       id: profile.id,
       email: profile.email,
       name: profile.name,
+      role: profile.role,
+      isActive: profile.isActive,
       dailyLimit: profile.dailyLimit,
       hasBrevoKey: !!profile.brevoApiKey,
       hasSendsparkKey: !!profile.sendsparkApiKey,

@@ -9,11 +9,13 @@
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public."Profile" (id, email, name, "dailyLimit", "createdAt", "updatedAt")
+  INSERT INTO public."Profile" (id, email, name, role, "isActive", "dailyLimit", "createdAt", "updatedAt")
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', ''),
+    CASE WHEN NEW.email = 'agenciaredbot@gmail.com' THEN 'superadmin' ELSE 'user' END,
+    true,
     50,
     NOW(),
     NOW()

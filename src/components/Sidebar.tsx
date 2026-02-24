@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Search,
@@ -16,6 +17,7 @@ import {
   Settings,
   Zap,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -37,12 +39,26 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.role === "superadmin") setIsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   };
+
+  const allNavigation = isAdmin
+    ? [...navigation, { name: "Admin", href: "/admin", icon: Shield }]
+    : navigation;
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950">
@@ -57,7 +73,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-        {navigation.map((item) => {
+        {allNavigation.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -69,7 +85,9 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  ? item.name === "Admin"
+                    ? "bg-violet-500/10 text-violet-400 border border-violet-500/20"
+                    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                   : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
               )}
             >

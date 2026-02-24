@@ -46,6 +46,7 @@ export async function updateSession(request: NextRequest) {
     "/videos",
     "/exports",
     "/settings",
+    "/admin",
   ];
   const isProtected = protectedPaths.some((p) =>
     request.nextUrl.pathname.startsWith(p)
