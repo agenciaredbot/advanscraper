@@ -81,7 +81,7 @@ export async function scrapeGoogleMapsRemote(options: {
       "X-API-Key": PLAYWRIGHT_API_KEY,
     },
     body: JSON.stringify(options),
-    signal: AbortSignal.timeout(55000), // 55s — must fit within Vercel's 60s maxDuration
+    signal: AbortSignal.timeout(45000), // 45s — leaves buffer for DB operations within Vercel's 60s
   });
 
   if (!res.ok) {
@@ -116,7 +116,7 @@ export async function scrapeLinkedInRemote(options: {
       "X-API-Key": PLAYWRIGHT_API_KEY,
     },
     body: JSON.stringify(options),
-    signal: AbortSignal.timeout(55000), // 55s — must fit within Vercel's 60s maxDuration
+    signal: AbortSignal.timeout(45000), // 45s — leaves buffer for DB operations within Vercel's 60s
   });
 
   if (!res.ok) {

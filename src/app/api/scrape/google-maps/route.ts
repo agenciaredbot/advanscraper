@@ -127,18 +127,33 @@ export async function POST(request: NextRequest) {
         message: `¡${savedCount} leads encontrados!`,
       });
     } catch (error) {
-      const errorMsg =
+      const rawMsg =
         error instanceof Error ? error.message : "Error desconocido";
 
       await prisma.search
         .update({
           where: { id: search.id },
-          data: { status: "failed", errorMessage: errorMsg },
+          data: { status: "failed", errorMessage: rawMsg },
         })
         .catch(() => {});
 
+      // Translate technical errors to user-friendly messages
+      let userMsg = rawMsg;
+      const lower = rawMsg.toLowerCase();
+      if (lower.includes("unusual traffic") || lower.includes("tráfico inusual") || lower.includes("detectó")) {
+        userMsg = "Google detectó automatización. Espera unos minutos e intenta de nuevo.";
+      } else if (lower.includes("captcha") || lower.includes("bloqueó")) {
+        userMsg = "Google bloqueó la solicitud. Espera unos minutos e intenta de nuevo.";
+      } else if (lower.includes("timeout") || lower.includes("tardó")) {
+        userMsg = "La búsqueda tardó demasiado. Intenta con menos resultados o una búsqueda más específica.";
+      } else if (lower.includes("not available") || lower.includes("no disponible")) {
+        userMsg = "El servicio de scraping no está disponible. Verifica que esté corriendo.";
+      } else if (lower.includes("no se encontraron resultados")) {
+        userMsg = rawMsg; // Already user-friendly
+      }
+
       return NextResponse.json(
-        { error: `Error en scraping: ${errorMsg}` },
+        { error: userMsg },
         { status: 500 }
       );
     }

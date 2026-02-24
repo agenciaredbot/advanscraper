@@ -62,7 +62,7 @@ interface GoogleMapsBody {
 }
 
 fastify.post<{ Body: GoogleMapsBody }>("/scrape/google-maps", async (request, reply) => {
-  const { query, location, maxResults = 20, extractEmails = true } = request.body || {};
+  const { query, location, maxResults = 10, extractEmails = false } = request.body || {};
 
   if (!query || typeof query !== "string" || query.trim().length === 0) {
     return reply.code(400).send({ error: "Field 'query' is required" });
