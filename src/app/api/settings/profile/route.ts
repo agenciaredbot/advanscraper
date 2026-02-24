@@ -25,8 +25,12 @@ export async function GET() {
       hasApifyToken: !!profile.apifyApiToken,
     });
   } catch (error) {
-    console.error("Profile GET error:", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Profile GET error:", msg, error);
+    return NextResponse.json(
+      { error: "Error interno", debug: msg },
+      { status: 500 }
+    );
   }
 }
 
@@ -73,7 +77,11 @@ export async function PUT(request: NextRequest) {
       hasApifyToken: !!profile.apifyApiToken,
     });
   } catch (error) {
-    console.error("Profile PUT error:", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Profile PUT error:", msg, error);
+    return NextResponse.json(
+      { error: "Error interno", debug: msg },
+      { status: 500 }
+    );
   }
 }

@@ -142,13 +142,17 @@ export default function SettingsPage() {
   const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch("/api/settings/profile");
-      if (!res.ok) throw new Error("Error al cargar perfil");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.debug || `HTTP ${res.status}`);
+      }
       const data: ProfileData = await res.json();
       setProfile(data);
       setName(data.name ?? "");
       setDailyLimit(data.dailyLimit ?? 50);
-    } catch {
-      toast.error("No se pudo cargar el perfil");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      toast.error(`No se pudo cargar el perfil: ${msg}`);
     } finally {
       setLoadingProfile(false);
     }
