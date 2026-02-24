@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 import pg from "pg";
 
-const DEPLOY_MARKER = "562808b-ssl-fix";
+const DEPLOY_MARKER = "0d5132d-ssl-true-fix";
 
 export async function GET() {
   const result: Record<string, unknown> = {
@@ -11,11 +11,25 @@ export async function GET() {
     deployMarker: DEPLOY_MARKER,
   };
 
-  // 1. Check environment variables
+  // 1. Parse and show DATABASE_URL details (no password)
   const dbUrl = process.env.DATABASE_URL ?? "";
+  let parsedUrl: { username: string; hostname: string; port: string; pathname: string; search: string } | null = null;
+  try {
+    const u = new URL(dbUrl);
+    parsedUrl = {
+      username: u.username,
+      hostname: u.hostname,
+      port: u.port,
+      pathname: u.pathname,
+      search: u.search,
+    };
+  } catch {
+    parsedUrl = null;
+  }
+
   result.env = {
-    hasDbUrl: !!process.env.DATABASE_URL,
-    dbUrlPreview: dbUrl ? dbUrl.replace(/:[^@]+@/, ":***@").substring(0, 80) + "..." : "NOT SET",
+    hasDbUrl: !!dbUrl,
+    parsedUrl,
     hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     nodeEnv: process.env.NODE_ENV,
@@ -33,54 +47,37 @@ export async function GET() {
       error: error?.message ?? null,
     };
   } catch (e) {
-    result.auth = {
-      hasUser: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
+    result.auth = { hasUser: false, error: e instanceof Error ? e.message : String(e) };
   }
 
-  // 3. Test DB connection directly (bypass Prisma)
-  try {
-    const pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 1,
-      connectionTimeoutMillis: 5000,
-      ssl: { rejectUnauthorized: false },
-    });
-    const start = Date.now();
-    const res = await pool.query("SELECT 1 as ok");
-    const latency = Date.now() - start;
-    await pool.end();
-    result.dbDirect = {
-      connected: true,
-      latency: `${latency}ms`,
-      result: res.rows[0],
-    };
-  } catch (e) {
-    result.dbDirect = {
-      connected: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
-  }
+  // 3. Test DB with ssl: true (SNI auto from hostname)
+  result.dbSslTrue = await testPool(dbUrl, { ssl: true }, "ssl:true");
 
-  // 4. Test Prisma connection
+  // 4. Test DB with ssl: { rejectUnauthorized: false } (old method)
+  result.dbSslObject = await testPool(dbUrl, { ssl: { rejectUnauthorized: false } }, "ssl:{rejectUnauthorized:false}");
+
+  // 5. Test DB with ssl + explicit servername
+  const hostname = parsedUrl?.hostname ?? "";
+  result.dbSslServername = await testPool(
+    dbUrl,
+    { ssl: { rejectUnauthorized: false, servername: hostname } },
+    `ssl:{servername:'${hostname}'}`
+  );
+
+  // 6. Test DB WITHOUT ssl (in case Supavisor doesn't require it)
+  result.dbNoSsl = await testPool(dbUrl, {}, "no-ssl");
+
+  // 7. Test Prisma (uses ssl:true from db.ts now)
   try {
     const start = Date.now();
     const count = await prisma.profile.count();
     const latency = Date.now() - start;
-    result.dbPrisma = {
-      connected: true,
-      latency: `${latency}ms`,
-      profileCount: count,
-    };
+    result.dbPrisma = { connected: true, latency: `${latency}ms`, profileCount: count };
   } catch (e) {
-    result.dbPrisma = {
-      connected: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
+    result.dbPrisma = { connected: false, error: e instanceof Error ? e.message : String(e) };
   }
 
-  // 5. Try to find profile for authenticated user
+  // 8. Profile lookup (only if Prisma connected)
   try {
     const authData = result.auth as Record<string, unknown>;
     if (authData?.hasUser && authData?.userId) {
@@ -88,37 +85,40 @@ export async function GET() {
         where: { id: authData.userId as string },
       });
       result.profile = profile
-        ? {
-            found: true,
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role,
-            isActive: profile.isActive,
-          }
+        ? { found: true, id: profile.id, email: profile.email, name: profile.name, role: profile.role }
         : { found: false, reason: "No profile with this auth user ID" };
     } else {
-      result.profile = { found: false, reason: "No authenticated user to look up" };
+      result.profile = { found: false, reason: "No authenticated user" };
     }
   } catch (e) {
-    result.profile = {
-      found: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
+    result.profile = { found: false, error: e instanceof Error ? e.message : String(e) };
   }
 
-  // 6. List all profiles (for debugging)
+  return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+}
+
+// Helper: test a pg.Pool connection with given SSL config
+async function testPool(
+  connectionString: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sslConfig: Record<string, any>,
+  label: string
+) {
   try {
-    const allProfiles = await prisma.profile.findMany({
-      select: { id: true, email: true, name: true, role: true },
-      take: 10,
-    });
-    result.allProfiles = allProfiles;
+    const poolOpts: pg.PoolConfig = {
+      connectionString,
+      max: 1,
+      idleTimeoutMillis: 5000,
+      connectionTimeoutMillis: 5000,
+      ...sslConfig,
+    };
+    const pool = new pg.Pool(poolOpts);
+    const start = Date.now();
+    const res = await pool.query("SELECT 1 as ok");
+    const latency = Date.now() - start;
+    await pool.end();
+    return { connected: true, latency: `${latency}ms`, label, result: res.rows[0] };
   } catch (e) {
-    result.allProfiles = { error: e instanceof Error ? e.message : String(e) };
+    return { connected: false, label, error: e instanceof Error ? e.message : String(e) };
   }
-
-  return NextResponse.json(result, {
-    headers: { "Cache-Control": "no-store" },
-  });
 }

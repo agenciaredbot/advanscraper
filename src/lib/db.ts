@@ -14,7 +14,7 @@ function createPrismaClient() {
     max: 1,                        // Serverless: 1 conexión por instancia
     idleTimeoutMillis: 20000,      // Cerrar idle después de 20s
     connectionTimeoutMillis: 5000, // Timeout de conexión 5s
-    ssl: { rejectUnauthorized: false }, // SSL requerido por Supabase desde Vercel
+    ssl: true, // SSL con SNI automático — requerido por Supabase Supavisor
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
