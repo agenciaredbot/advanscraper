@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
-import { createJob } from "@/lib/jobs/manager";
-import { scrapeLinkedIn } from "@/lib/scrapers/linkedin";
+import {
+  createJob,
+  updateJobStatus,
+  updateJobProgress,
+  setJobResult,
+  setJobError,
+} from "@/lib/jobs/manager";
+import {
+  scrapeLinkedInRemote,
+  checkPlaywrightService,
+} from "@/lib/scrapers/playwright-service";
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -20,6 +31,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "El campo 'keyword' es obligatorio" },
         { status: 400 }
+      );
+    }
+
+    // Check if Playwright service is available
+    const serviceOnline = await checkPlaywrightService();
+    if (!serviceOnline) {
+      return NextResponse.json(
+        {
+          error:
+            "Servicio de scraping no disponible. Intenta de nuevo en unos segundos.",
+        },
+        { status: 503 }
       );
     }
 
@@ -37,17 +60,81 @@ export async function POST(request: NextRequest) {
 
     const jobId = createJob(user.id, "linkedin_scrape");
 
-    // Start in background
-    scrapeLinkedIn({
-      keyword,
-      location,
-      maxResults: Math.min(maxResults, 50),
-      jobId,
-      userId: user.id,
-      searchId: search.id,
-    }).catch((err) => {
-      console.error("Background LinkedIn scrape error:", err);
-    });
+    // Start scraping in background via microservice
+    (async () => {
+      try {
+        updateJobStatus(jobId, "running");
+        updateJobProgress(jobId, {
+          phase: "Scrapeando LinkedIn",
+          current: 0,
+          total: maxResults,
+          message: "Enviando solicitud al servicio de scraping...",
+        });
+
+        const results = await scrapeLinkedInRemote({
+          keyword,
+          location,
+          maxResults: Math.min(maxResults, 50),
+        });
+
+        // Save results to DB
+        let savedCount = 0;
+        for (const data of results) {
+          try {
+            await prisma.lead.create({
+              data: {
+                userId: user.id,
+                searchId: search.id,
+                source: "linkedin",
+                contactPerson: data.contactPerson,
+                contactTitle: data.contactTitle,
+                city: data.city || location || null,
+                profileUrl: data.profileUrl,
+                businessName: data.company,
+              },
+            });
+            savedCount++;
+          } catch {
+            // Duplicate or DB error
+          }
+          updateJobProgress(jobId, {
+            current: savedCount,
+            message: `Guardando perfil ${savedCount} de ${results.length}...`,
+          });
+        }
+
+        await prisma.search.update({
+          where: { id: search.id },
+          data: {
+            status: "completed",
+            totalResults: savedCount,
+            completedAt: new Date(),
+          },
+        });
+
+        updateJobStatus(jobId, "completed");
+        updateJobProgress(jobId, {
+          phase: "Completado",
+          current: savedCount,
+          total: savedCount,
+          message: `¡${savedCount} perfiles encontrados!`,
+        });
+        setJobResult(jobId, { count: savedCount, results });
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Background LinkedIn scrape error:", errorMsg);
+
+        await prisma.search
+          .update({
+            where: { id: search.id },
+            data: { status: "failed", errorMessage: errorMsg },
+          })
+          .catch(() => {});
+
+        setJobError(jobId, errorMsg);
+      }
+    })();
 
     return NextResponse.json({
       success: true,
