@@ -1,4 +1,3 @@
-import { chromium, type Browser, type BrowserContext, type LaunchOptions } from "playwright";
 import { getRandomUserAgent } from "./user-agents";
 
 // Random viewport sizes to avoid fingerprinting
@@ -22,14 +21,18 @@ export interface StealthBrowserOptions {
 
 /**
  * Launch a stealth Chromium browser with anti-detection measures
+ * Uses dynamic import so it doesn't break on serverless (Vercel)
  */
 export async function launchStealthBrowser(
   options: StealthBrowserOptions = {}
-): Promise<{ browser: Browser; context: BrowserContext }> {
+) {
+  // Dynamic import — Playwright is not available on Vercel serverless
+  const { chromium } = await import("playwright");
+
   const viewport = getRandomViewport();
   const userAgent = getRandomUserAgent();
 
-  const launchOptions: LaunchOptions = {
+  const launchOptions: Parameters<typeof chromium.launch>[0] = {
     headless: options.headless ?? true,
     args: [
       "--disable-blink-features=AutomationControlled",

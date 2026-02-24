@@ -2,9 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:Robotrojo531-@db.lcpmeycntfitgmrmgndn.supabase.co:5432/postgres";
+const connectionString = process.env.DATABASE_URL!;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
