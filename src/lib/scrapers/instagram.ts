@@ -57,7 +57,7 @@ export async function scrapeInstagramProfile(
         "X-API-Key": PLAYWRIGHT_API_KEY,
       },
       body: JSON.stringify({ username }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(50000), // 50s — fit within Vercel's 60s maxDuration
     });
 
     if (res.status === 404) return null;
@@ -89,7 +89,7 @@ export async function searchInstagramProfiles(
         "X-API-Key": PLAYWRIGHT_API_KEY,
       },
       body: JSON.stringify({ query, limit }),
-      signal: AbortSignal.timeout(180000), // 3 min — search + scrape each profile
+      signal: AbortSignal.timeout(55000), // 55s — fit within Vercel's 60s maxDuration // 3 min — search + scrape each profile
     });
 
     if (!res.ok) {
@@ -118,7 +118,7 @@ export async function scrapeInstagramBulk(
         "X-API-Key": PLAYWRIGHT_API_KEY,
       },
       body: JSON.stringify({ usernames }),
-      signal: AbortSignal.timeout(180000), // 3 min
+      signal: AbortSignal.timeout(55000), // 55s — fit within Vercel's 60s maxDuration // 3 min
     });
 
     if (!res.ok) {

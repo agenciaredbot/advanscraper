@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma, getOrCreateProfile } from "@/lib/db";
-import { createJob, updateJobStatus, updateJobProgress, setJobResult, setJobError } from "@/lib/jobs/manager";
 import {
   scrapeGoogleMapsApify,
   scrapeLinkedInApify,
@@ -11,6 +10,8 @@ import {
   normalizeInstagramApify,
   type NormalizedLead,
 } from "@/lib/scrapers/apify";
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,94 +54,77 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const jobId = createJob(user.id, "apify_scrape");
+    try {
+      let normalized: NormalizedLead[] = [];
 
-    // Start in background
-    (async () => {
-      try {
-        updateJobStatus(jobId, "running");
-        updateJobProgress(jobId, {
-          phase: "Ejecutando Apify",
-          current: 0,
-          total: maxResults,
-          message: `Scrapeando via Apify (${source})...`,
-        });
-
-        let normalized: NormalizedLead[] = [];
-
-        switch (source) {
-          case "google_maps": {
-            const results = await scrapeGoogleMapsApify(query, location, maxResults, apiToken);
-            normalized = normalizeGoogleMapsApify(results);
-            break;
-          }
-          case "linkedin": {
-            const results = await scrapeLinkedInApify(query, location, maxResults, apiToken);
-            normalized = normalizeLinkedInApify(results);
-            break;
-          }
-          case "instagram": {
-            const results = await scrapeInstagramApify(
-              { usernames, query },
-              maxResults,
-              apiToken
-            );
-            normalized = normalizeInstagramApify(results);
-            break;
-          }
-          default:
-            throw new Error(`Fuente desconocida: ${source}`);
+      switch (source) {
+        case "google_maps": {
+          const results = await scrapeGoogleMapsApify(query, location, maxResults, apiToken);
+          normalized = normalizeGoogleMapsApify(results);
+          break;
         }
-
-        // Save all leads to DB
-        let savedCount = 0;
-        for (const lead of normalized) {
-          try {
-            await prisma.lead.create({
-              data: {
-                userId: user.id,
-                searchId: search.id,
-                ...lead,
-              },
-            });
-            savedCount++;
-          } catch {
-            // Duplicate or error
-          }
+        case "linkedin": {
+          const results = await scrapeLinkedInApify(query, location, maxResults, apiToken);
+          normalized = normalizeLinkedInApify(results);
+          break;
         }
-
-        await prisma.search.update({
-          where: { id: search.id },
-          data: {
-            status: "completed",
-            totalResults: savedCount,
-            completedAt: new Date(),
-          },
-        });
-
-        updateJobStatus(jobId, "completed");
-        updateJobProgress(jobId, {
-          phase: "Completado",
-          current: savedCount,
-          total: normalized.length,
-          message: `¡${savedCount} leads guardados!`,
-        });
-        setJobResult(jobId, { count: savedCount });
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        await prisma.search.update({
-          where: { id: search.id },
-          data: { status: "failed", errorMessage: errorMsg },
-        }).catch(() => {});
-        setJobError(jobId, errorMsg);
+        case "instagram": {
+          const results = await scrapeInstagramApify(
+            { usernames, query },
+            maxResults,
+            apiToken
+          );
+          normalized = normalizeInstagramApify(results);
+          break;
+        }
+        default:
+          throw new Error(`Fuente desconocida: ${source}`);
       }
-    })();
 
-    return NextResponse.json({
-      success: true,
-      jobId,
-      searchId: search.id,
-    });
+      // Save all leads to DB
+      let savedCount = 0;
+      for (const lead of normalized) {
+        try {
+          await prisma.lead.create({
+            data: {
+              userId: user.id,
+              searchId: search.id,
+              ...lead,
+            },
+          });
+          savedCount++;
+        } catch {
+          // Duplicate or error — skip
+        }
+      }
+
+      await prisma.search.update({
+        where: { id: search.id },
+        data: {
+          status: "completed",
+          totalResults: savedCount,
+          completedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        searchId: search.id,
+        count: savedCount,
+        message: `¡${savedCount} leads encontrados!`,
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Error desconocido";
+      await prisma.search.update({
+        where: { id: search.id },
+        data: { status: "failed", errorMessage: errorMsg },
+      }).catch(() => {});
+
+      return NextResponse.json(
+        { error: `Error en scraping Apify: ${errorMsg}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Apify scrape endpoint error:", error);
     return NextResponse.json(

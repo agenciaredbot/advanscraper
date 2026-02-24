@@ -61,7 +61,7 @@ export async function scrapeGoogleMapsApify(
   // Run the Google Maps Scraper actor
   const run = await client
     .actor("compass/crawler-google-places")
-    .call(input, { waitSecs: 300 });
+    .call(input, { waitSecs: 55 });
 
   // Fetch results
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
@@ -111,7 +111,7 @@ export async function scrapeLinkedInApify(
         startUrls: [{ url: searchUrl }],
         maxResults: limit,
       },
-      { waitSecs: 300 }
+      { waitSecs: 55 }
     );
 
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
@@ -166,7 +166,7 @@ export async function scrapeInstagramApify(
 
   const run = await client
     .actor("apify/instagram-profile-scraper")
-    .call(actorInput, { waitSecs: 300 });
+    .call(actorInput, { waitSecs: 55 });
 
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
 

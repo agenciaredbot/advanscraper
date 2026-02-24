@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 import {
-  createJob,
-  updateJobStatus,
-  updateJobProgress,
-  setJobResult,
-  setJobError,
-} from "@/lib/jobs/manager";
-import {
   scrapeLinkedInRemote,
   checkPlaywrightService,
 } from "@/lib/scrapers/playwright-service";
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Servicio de scraping no disponible. Intenta de nuevo en unos segundos.",
+            "Servicio de scraping no disponible. Verifica que el microservicio Playwright esté corriendo.",
         },
         { status: 503 }
       );
@@ -58,89 +53,66 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const jobId = createJob(user.id, "linkedin_scrape");
+    try {
+      const results = await scrapeLinkedInRemote({
+        keyword,
+        location,
+        maxResults: Math.min(maxResults, 50),
+      });
 
-    // Start scraping in background via microservice
-    (async () => {
-      try {
-        updateJobStatus(jobId, "running");
-        updateJobProgress(jobId, {
-          phase: "Scrapeando LinkedIn",
-          current: 0,
-          total: maxResults,
-          message: "Enviando solicitud al servicio de scraping...",
-        });
-
-        const results = await scrapeLinkedInRemote({
-          keyword,
-          location,
-          maxResults: Math.min(maxResults, 50),
-        });
-
-        // Save results to DB
-        let savedCount = 0;
-        for (const data of results) {
-          try {
-            await prisma.lead.create({
-              data: {
-                userId: user.id,
-                searchId: search.id,
-                source: "linkedin",
-                contactPerson: data.contactPerson,
-                contactTitle: data.contactTitle,
-                city: data.city || location || null,
-                profileUrl: data.profileUrl,
-                businessName: data.company,
-              },
-            });
-            savedCount++;
-          } catch {
-            // Duplicate or DB error
-          }
-          updateJobProgress(jobId, {
-            current: savedCount,
-            message: `Guardando perfil ${savedCount} de ${results.length}...`,
+      // Save results to DB
+      let savedCount = 0;
+      for (const data of results) {
+        try {
+          await prisma.lead.create({
+            data: {
+              userId: user.id,
+              searchId: search.id,
+              source: "linkedin",
+              contactPerson: data.contactPerson,
+              contactTitle: data.contactTitle,
+              city: data.city || location || null,
+              profileUrl: data.profileUrl,
+              businessName: data.company,
+            },
           });
+          savedCount++;
+        } catch {
+          // Duplicate or DB error — skip
         }
-
-        await prisma.search.update({
-          where: { id: search.id },
-          data: {
-            status: "completed",
-            totalResults: savedCount,
-            completedAt: new Date(),
-          },
-        });
-
-        updateJobStatus(jobId, "completed");
-        updateJobProgress(jobId, {
-          phase: "Completado",
-          current: savedCount,
-          total: savedCount,
-          message: `¡${savedCount} perfiles encontrados!`,
-        });
-        setJobResult(jobId, { count: savedCount, results });
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "Unknown error";
-        console.error("Background LinkedIn scrape error:", errorMsg);
-
-        await prisma.search
-          .update({
-            where: { id: search.id },
-            data: { status: "failed", errorMessage: errorMsg },
-          })
-          .catch(() => {});
-
-        setJobError(jobId, errorMsg);
       }
-    })();
 
-    return NextResponse.json({
-      success: true,
-      jobId,
-      searchId: search.id,
-    });
+      await prisma.search.update({
+        where: { id: search.id },
+        data: {
+          status: "completed",
+          totalResults: savedCount,
+          completedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        searchId: search.id,
+        count: savedCount,
+        message: `¡${savedCount} perfiles encontrados!`,
+      });
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Error desconocido";
+
+      await prisma.search
+        .update({
+          where: { id: search.id },
+          data: { status: "failed", errorMessage: errorMsg },
+        })
+        .catch(() => {});
+
+      return NextResponse.json(
+        { error: `Error en scraping: ${errorMsg}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("LinkedIn scrape endpoint error:", error);
     return NextResponse.json(

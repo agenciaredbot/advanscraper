@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma, getOrCreateProfile } from "@/lib/db";
 import {
-  createJob,
-  updateJobStatus,
-  updateJobProgress,
-  setJobResult,
-  setJobError,
-} from "@/lib/jobs/manager";
-import {
   scrapeGoogleMapsRemote,
   checkPlaywrightService,
 } from "@/lib/scrapers/playwright-service";
+
+export const maxDuration = 60; // Vercel hobby max
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { query, location, maxResults = 20, extractEmails = true } = body;
+    const { query, location, maxResults = 10, extractEmails = false } = body;
 
     if (!query) {
       return NextResponse.json(
@@ -37,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check daily limit
-    const profile = await getOrCreateProfile(user.id, user.email ?? "");
+    await getOrCreateProfile(user.id, user.email ?? "");
 
     const todaySearches = await prisma.search.count({
       where: {
@@ -62,7 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Servicio de scraping no disponible. Intenta de nuevo en unos segundos.",
+            "Servicio de scraping no disponible. Verifica que el microservicio Playwright esté corriendo.",
         },
         { status: 503 }
       );
@@ -80,98 +75,73 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create job for tracking
-    const jobId = createJob(user.id, "google_maps_scrape");
+    // Execute scraping synchronously (wait for results)
+    try {
+      const results = await scrapeGoogleMapsRemote({
+        query,
+        location,
+        maxResults: Math.min(maxResults, 80),
+        extractEmails,
+      });
 
-    // Start scraping in background via microservice
-    (async () => {
-      try {
-        updateJobStatus(jobId, "running");
-        updateJobProgress(jobId, {
-          phase: "Scrapeando Google Maps",
-          current: 0,
-          total: maxResults,
-          message: "Enviando solicitud al servicio de scraping...",
-        });
-
-        const results = await scrapeGoogleMapsRemote({
-          query,
-          location,
-          maxResults: Math.min(maxResults, 80),
-          extractEmails,
-        });
-
-        // Save results to DB
-        let savedCount = 0;
-        for (const data of results) {
-          try {
-            await prisma.lead.create({
-              data: {
-                userId: user.id,
-                searchId: search.id,
-                source: "google_maps",
-                businessName: data.businessName,
-                category: data.category,
-                address: data.address,
-                city: data.city || location || null,
-                phone: data.phone,
-                website: data.website,
-                email: data.email,
-                rating: data.rating,
-                reviewsCount: data.reviewsCount,
-                profileUrl: data.profileUrl,
-              },
-            });
-            savedCount++;
-          } catch {
-            // Duplicate or DB error
-          }
-          updateJobProgress(jobId, {
-            current: savedCount,
-            message: `Guardando resultado ${savedCount} de ${results.length}...`,
+      // Save results to DB
+      let savedCount = 0;
+      for (const data of results) {
+        try {
+          await prisma.lead.create({
+            data: {
+              userId: user.id,
+              searchId: search.id,
+              source: "google_maps",
+              businessName: data.businessName,
+              category: data.category,
+              address: data.address,
+              city: data.city || location || null,
+              phone: data.phone,
+              website: data.website,
+              email: data.email,
+              rating: data.rating,
+              reviewsCount: data.reviewsCount,
+              profileUrl: data.profileUrl,
+            },
           });
+          savedCount++;
+        } catch {
+          // Duplicate or DB error — skip
         }
-
-        await prisma.search.update({
-          where: { id: search.id },
-          data: {
-            status: "completed",
-            totalResults: savedCount,
-            completedAt: new Date(),
-          },
-        });
-
-        updateJobStatus(jobId, "completed");
-        updateJobProgress(jobId, {
-          phase: "Completado",
-          current: savedCount,
-          total: savedCount,
-          message: `¡Listo! ${savedCount} leads guardados.`,
-        });
-        setJobResult(jobId, { count: savedCount, results });
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "Unknown error";
-        console.error("Background Google Maps scrape error:", errorMsg);
-
-        await prisma.search
-          .update({
-            where: { id: search.id },
-            data: { status: "failed", errorMessage: errorMsg },
-          })
-          .catch(() => {});
-
-        setJobError(jobId, errorMsg);
       }
-    })();
 
-    return NextResponse.json({
-      success: true,
-      jobId,
-      searchId: search.id,
-      message:
-        "Búsqueda iniciada. Consulta el progreso con /api/jobs/{jobId}",
-    });
+      await prisma.search.update({
+        where: { id: search.id },
+        data: {
+          status: "completed",
+          totalResults: savedCount,
+          completedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        searchId: search.id,
+        count: savedCount,
+        message: `¡${savedCount} leads encontrados!`,
+      });
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Error desconocido";
+
+      await prisma.search
+        .update({
+          where: { id: search.id },
+          data: { status: "failed", errorMessage: errorMsg },
+        })
+        .catch(() => {});
+
+      return NextResponse.json(
+        { error: `Error en scraping: ${errorMsg}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Scrape endpoint error:", error);
     return NextResponse.json(

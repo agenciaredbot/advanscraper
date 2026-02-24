@@ -6,14 +6,12 @@ import { GoogleMapsForm } from "@/components/search/GoogleMapsForm";
 import { LinkedInForm } from "@/components/search/LinkedInForm";
 import { InstagramForm } from "@/components/search/InstagramForm";
 import { ApifyForm } from "@/components/search/ApifyForm";
-import { ProgressTracker } from "@/components/search/ProgressTracker";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export default function SearchPage() {
   const [source, setSource] = useState<SearchSource>("google_maps");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [igServiceOnline, setIgServiceOnline] = useState(false);
   const router = useRouter();
 
@@ -37,29 +35,18 @@ export default function SearchPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        toast.error(result.error || "Error al iniciar búsqueda");
-        setIsLoading(false);
+        toast.error(result.error || "Error al ejecutar búsqueda");
         return;
       }
 
-      setActiveJobId(result.jobId);
-      toast.success("Búsqueda iniciada");
+      // Success — show result count and redirect
+      toast.success(result.message || `¡${result.count} leads encontrados!`);
+      router.push("/results");
     } catch {
-      toast.error("Error de conexión");
+      toast.error("Error de conexión. Intenta de nuevo.");
+    } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleJobComplete = () => {
-    setIsLoading(false);
-    setActiveJobId(null);
-    toast.success("¡Búsqueda completada! Ve a Resultados para ver los leads.");
-    router.refresh();
-  };
-
-  const handleJobCancel = () => {
-    setIsLoading(false);
-    setActiveJobId(null);
   };
 
   return (
@@ -74,13 +61,17 @@ export default function SearchPage() {
       {/* Source Selector */}
       <SourceSelector selected={source} onChange={setSource} />
 
-      {/* Active Job Progress */}
-      {activeJobId && (
-        <ProgressTracker
-          jobId={activeJobId}
-          onComplete={handleJobComplete}
-          onCancel={handleJobCancel}
-        />
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+          <div>
+            <p className="text-zinc-100 font-medium">Buscando leads...</p>
+            <p className="text-sm text-zinc-400">
+              Esto puede tomar hasta 60 segundos. No cierres esta pestaña.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Source-specific forms */}

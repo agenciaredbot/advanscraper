@@ -21,8 +21,8 @@ interface GoogleMapsFormProps {
 export function GoogleMapsForm({ onSubmit, isLoading }: GoogleMapsFormProps) {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
-  const [maxResults, setMaxResults] = useState(20);
-  const [extractEmails, setExtractEmails] = useState(true);
+  const [maxResults, setMaxResults] = useState(10);
+  const [extractEmails, setExtractEmails] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +92,7 @@ export function GoogleMapsForm({ onSubmit, isLoading }: GoogleMapsFormProps) {
               }
             />
             <Label htmlFor="gm-emails" className="text-zinc-300 text-sm cursor-pointer">
-              Extraer emails de sitios web (más lento pero más datos)
+              Extraer emails de sitios web (agrega ~30s, más lento pero más datos)
             </Label>
           </div>
 
