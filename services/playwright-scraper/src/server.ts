@@ -14,12 +14,7 @@ if (!API_KEY) {
 
 // --- Fastify Instance ---
 const fastify = Fastify({
-  logger: {
-    level: "info",
-    transport: {
-      target: "pino-pretty" in process.versions ? "pino-pretty" : undefined!,
-    },
-  },
+  logger: true,
   requestTimeout: 150000, // 2.5 min global timeout
 });
 
