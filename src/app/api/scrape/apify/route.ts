@@ -82,22 +82,17 @@ export async function POST(request: NextRequest) {
           throw new Error(`Fuente desconocida: ${source}`);
       }
 
-      // Save all leads to DB
-      let savedCount = 0;
-      for (const lead of normalized) {
-        try {
-          await prisma.lead.create({
-            data: {
-              userId: user.id,
-              searchId: search.id,
-              ...lead,
-            },
-          });
-          savedCount++;
-        } catch {
-          // Duplicate or error — skip
-        }
-      }
+      // Save all leads to DB (bulk insert, skip duplicates)
+      const validLeads = normalized.filter((l) => l.profileUrl);
+      const result = await prisma.lead.createMany({
+        data: validLeads.map((lead) => ({
+          userId: user.id,
+          searchId: search.id,
+          ...lead,
+        })),
+        skipDuplicates: true,
+      });
+      const savedCount = result.count;
 
       await prisma.search.update({
         where: { id: search.id },

@@ -60,27 +60,22 @@ export async function POST(request: NextRequest) {
         maxResults: Math.min(maxResults, 50),
       });
 
-      // Save results to DB
-      let savedCount = 0;
-      for (const data of results) {
-        try {
-          await prisma.lead.create({
-            data: {
-              userId: user.id,
-              searchId: search.id,
-              source: "linkedin",
-              contactPerson: data.contactPerson,
-              contactTitle: data.contactTitle,
-              city: data.city || location || null,
-              profileUrl: data.profileUrl,
-              businessName: data.company,
-            },
-          });
-          savedCount++;
-        } catch {
-          // Duplicate or DB error — skip
-        }
-      }
+      // Save results to DB (bulk insert, skip duplicates)
+      const validResults = results.filter((r) => r.profileUrl);
+      const result = await prisma.lead.createMany({
+        data: validResults.map((data) => ({
+          userId: user.id,
+          searchId: search.id,
+          source: "linkedin",
+          contactPerson: data.contactPerson,
+          contactTitle: data.contactTitle,
+          city: data.city || location || null,
+          profileUrl: data.profileUrl,
+          businessName: data.company,
+        })),
+        skipDuplicates: true,
+      });
+      const savedCount = result.count;
 
       await prisma.search.update({
         where: { id: search.id },

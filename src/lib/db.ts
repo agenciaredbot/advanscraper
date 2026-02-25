@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const pool = new pg.Pool({
     connectionString,
-    max: 1,                        // Serverless: 1 connection per instance
+    max: 5,                        // Allow concurrent DB operations per instance
     idleTimeoutMillis: 20000,
     connectionTimeoutMillis: 5000,
     ssl: { rejectUnauthorized: false }, // Supabase uses self-signed certs

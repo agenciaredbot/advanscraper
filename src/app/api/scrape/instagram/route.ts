@@ -48,9 +48,9 @@ export async function POST(request: NextRequest) {
       if (username) {
         // Single profile scrape
         const profile = await scrapeInstagramProfile(username);
-        if (profile) {
-          await prisma.lead.create({
-            data: {
+        if (profile && profile.profileUrl) {
+          const result = await prisma.lead.createMany({
+            data: [{
               userId: user.id,
               searchId: search.id,
               source: "instagram",
@@ -64,36 +64,35 @@ export async function POST(request: NextRequest) {
               category: profile.category,
               profileUrl: profile.profileUrl,
               businessName: profile.isBusiness ? profile.fullName : null,
-            },
-          }).catch(() => {});
-          savedCount = 1;
+            }],
+            skipDuplicates: true,
+          });
+          savedCount = result.count;
         }
       } else {
-        // Search scrape
+        // Search scrape (bulk insert)
         const profiles = await searchInstagramProfiles(query, 20);
-        for (const profile of profiles) {
-          try {
-            await prisma.lead.create({
-              data: {
-                userId: user.id,
-                searchId: search.id,
-                source: "instagram",
-                contactPerson: profile.fullName,
-                email: profile.email,
-                phone: profile.phone,
-                website: profile.website,
-                bio: profile.bio,
-                followers: profile.followers,
-                isBusiness: profile.isBusiness,
-                category: profile.category,
-                profileUrl: profile.profileUrl,
-                businessName: profile.isBusiness ? profile.fullName : null,
-              },
-            });
-            savedCount++;
-          } catch {
-            // Duplicate — skip
-          }
+        const validProfiles = profiles.filter((p) => p.profileUrl);
+        if (validProfiles.length > 0) {
+          const result = await prisma.lead.createMany({
+            data: validProfiles.map((profile) => ({
+              userId: user.id,
+              searchId: search.id,
+              source: "instagram",
+              contactPerson: profile.fullName,
+              email: profile.email,
+              phone: profile.phone,
+              website: profile.website,
+              bio: profile.bio,
+              followers: profile.followers,
+              isBusiness: profile.isBusiness,
+              category: profile.category,
+              profileUrl: profile.profileUrl,
+              businessName: profile.isBusiness ? profile.fullName : null,
+            })),
+            skipDuplicates: true,
+          });
+          savedCount = result.count;
         }
       }
 
