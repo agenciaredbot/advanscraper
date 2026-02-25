@@ -45,14 +45,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create search record
+    // Create search record — use the actual platform name as source
     const search = await prisma.search.create({
       data: {
         userId: user.id,
-        source: "apify",
-        query: `[${source}] ${query}`,
+        source: source,
+        query: query,
         location: location || null,
-        filters: JSON.stringify({ source, maxResults }),
+        filters: JSON.stringify({ provider: "apify", maxResults }),
         status: "running",
       },
     });
@@ -110,12 +110,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Save all leads to DB (bulk insert, skip duplicates)
+      // Override source to use the actual platform name (not "apify")
       const validLeads = normalized.filter((l) => l.profileUrl);
       const result = await prisma.lead.createMany({
         data: validLeads.map((lead) => ({
           userId: user.id,
           searchId: search.id,
           ...lead,
+          source: source,
         })),
         skipDuplicates: true,
       });

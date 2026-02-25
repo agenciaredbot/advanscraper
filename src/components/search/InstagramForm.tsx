@@ -5,54 +5,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Instagram, Search, Loader2, AlertCircle } from "lucide-react";
+import { Instagram, Search, Loader2 } from "lucide-react";
 
 interface InstagramFormProps {
-  onSubmit: (data: { username: string; query: string }) => void;
+  onSubmit: (data: { username: string; query: string; maxResults: number }) => void;
   isLoading: boolean;
-  serviceOnline: boolean;
 }
 
-export function InstagramForm({ onSubmit, isLoading, serviceOnline }: InstagramFormProps) {
+export function InstagramForm({ onSubmit, isLoading }: InstagramFormProps) {
   const [username, setUsername] = useState("");
   const [query, setQuery] = useState("");
+  const [maxResults, setMaxResults] = useState(20);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() && !query.trim()) return;
-    onSubmit({ username, query });
+    onSubmit({ username, query, maxResults });
   };
 
   return (
     <Card className="border-zinc-800 bg-zinc-900/50">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <Instagram className="h-5 w-5 text-pink-400" />
-            Instagram
-          </CardTitle>
-          <Badge className={serviceOnline
-            ? "bg-emerald-500/20 text-emerald-400"
-            : "bg-red-500/20 text-red-400"
-          }>
-            {serviceOnline ? "Microservicio activo" : "Microservicio offline"}
-          </Badge>
-        </div>
+        <CardTitle className="flex items-center gap-2 text-zinc-100">
+          <Instagram className="h-5 w-5 text-pink-400" />
+          Instagram
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        {!serviceOnline && (
-          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 mb-4 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-            <div className="text-sm text-amber-300">
-              <p className="font-medium">Microservicio no disponible</p>
-              <p className="text-amber-400 mt-1">
-                Inicia el microservicio Python en <code className="bg-amber-500/10 px-1 rounded">services/instagram-scraper/</code> o usa Apify como alternativa premium.
-              </p>
-            </div>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="ig-username" className="text-zinc-300">
@@ -86,15 +65,31 @@ export function InstagramForm({ onSubmit, isLoading, serviceOnline }: InstagramF
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="ig-max" className="text-zinc-300">
+              Máximo de resultados
+            </Label>
+            <Input
+              id="ig-max"
+              type="number"
+              min={5}
+              max={100}
+              value={maxResults}
+              onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || 20)}
+              className="bg-zinc-800 border-zinc-700 text-zinc-100 w-24"
+            />
+            <p className="text-xs text-zinc-500">Incluye extracción de emails de bios y websites</p>
+          </div>
+
           <Button
             type="submit"
             className="w-full bg-pink-600 hover:bg-pink-700 text-white"
-            disabled={isLoading || (!username.trim() && !query.trim()) || !serviceOnline}
+            disabled={isLoading || (!username.trim() && !query.trim())}
           >
             {isLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Scrapeando...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Buscando...</>
             ) : (
-              <><Search className="mr-2 h-4 w-4" />Scrapear Instagram</>
+              <><Search className="mr-2 h-4 w-4" />Buscar Perfiles</>
             )}
           </Button>
         </form>

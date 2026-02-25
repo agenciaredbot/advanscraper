@@ -15,7 +15,7 @@ interface LinkedInFormProps {
 export function LinkedInForm({ onSubmit, isLoading }: LinkedInFormProps) {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
-  const [maxResults, setMaxResults] = useState(20);
+  const [maxResults, setMaxResults] = useState(25);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +28,7 @@ export function LinkedInForm({ onSubmit, isLoading }: LinkedInFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-zinc-100">
           <Linkedin className="h-5 w-5 text-blue-400" />
-          LinkedIn (via Google)
+          LinkedIn
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -68,12 +68,12 @@ export function LinkedInForm({ onSubmit, isLoading }: LinkedInFormProps) {
               id="li-max"
               type="number"
               min={5}
-              max={50}
+              max={100}
               value={maxResults}
-              onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || 20)}
+              onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || 25)}
               className="bg-zinc-800 border-zinc-700 text-zinc-100 w-24"
             />
-            <p className="text-xs text-zinc-500">Máximo 50 perfiles/día (anti-ban)</p>
+            <p className="text-xs text-zinc-500">Incluye enriquecimiento de emails automático</p>
           </div>
 
           <Button

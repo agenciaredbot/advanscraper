@@ -1,27 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { SourceSelector, type SearchSource } from "@/components/search/SourceSelector";
 import { GoogleMapsForm } from "@/components/search/GoogleMapsForm";
 import { LinkedInForm } from "@/components/search/LinkedInForm";
 import { InstagramForm } from "@/components/search/InstagramForm";
-import { ApifyForm } from "@/components/search/ApifyForm";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export default function SearchPage() {
   const [source, setSource] = useState<SearchSource>("google_maps");
   const [isLoading, setIsLoading] = useState(false);
-  const [igServiceOnline, setIgServiceOnline] = useState(false);
   const router = useRouter();
-
-  // Check Instagram microservice status
-  useEffect(() => {
-    fetch("/api/scrape/instagram/status")
-      .then((res) => res.json())
-      .then((data) => setIgServiceOnline(data.online))
-      .catch(() => setIgServiceOnline(false));
-  }, []);
 
   const startJob = async (endpoint: string, body: Record<string, unknown>) => {
     setIsLoading(true);
@@ -84,22 +74,30 @@ export default function SearchPage() {
 
       {source === "linkedin" && (
         <LinkedInForm
-          onSubmit={(data) => startJob("/api/scrape/linkedin", data)}
+          onSubmit={(data) =>
+            startJob("/api/scrape/apify", {
+              source: "linkedin",
+              query: data.keyword,
+              location: data.location,
+              maxResults: data.maxResults,
+            })
+          }
           isLoading={isLoading}
         />
       )}
 
       {source === "instagram" && (
         <InstagramForm
-          onSubmit={(data) => startJob("/api/scrape/instagram", data)}
-          isLoading={isLoading}
-          serviceOnline={igServiceOnline}
-        />
-      )}
-
-      {source === "apify" && (
-        <ApifyForm
-          onSubmit={(data) => startJob("/api/scrape/apify", data)}
+          onSubmit={(data) =>
+            startJob("/api/scrape/apify", {
+              source: "instagram",
+              query: data.query || data.username,
+              usernames: data.username
+                ? [data.username]
+                : undefined,
+              maxResults: data.maxResults,
+            })
+          }
           isLoading={isLoading}
         />
       )}
