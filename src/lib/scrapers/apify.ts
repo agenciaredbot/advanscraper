@@ -1,8 +1,17 @@
 /**
- * Apify API integration for premium/massive scraping
+ * Apify API integration for lead scraping
  *
- * Uses Apify actors for Google Maps, LinkedIn, and Instagram scraping
- * with much higher limits than free scrapers.
+ * Actors used (verified against documentation Feb 2026):
+ *
+ * SCRAPING:
+ * - Google Maps:  compass/crawler-google-places     (scrapeContacts: true for emails)
+ * - LinkedIn:     harvestapi/linkedin-profile-search (NO cookies, built-in email search)
+ * - Instagram:    apify/instagram-profile-scraper    (specific usernames)
+ *                 apify/instagram-scraper            (keyword search)
+ *
+ * ENRICHMENT:
+ * - LinkedIn→Email:  anchor/linkedin-to-email       (backup: $9/1K lookups)
+ * - Website→Email:   anchor/email-phone-extractor   (maxDepth:2, sameDomain:true)
  */
 
 import { ApifyClient } from "apify-client";
@@ -17,6 +26,8 @@ async function getApifyClient(apiToken?: string): Promise<ApifyClient> {
 
 // ====================================
 // Google Maps via Apify
+// Actor: compass/crawler-google-places
+// Docs: https://apify.com/compass/crawler-google-places
 // ====================================
 
 interface ApifyGoogleMapsInput {
@@ -25,6 +36,7 @@ interface ApifyGoogleMapsInput {
   maxCrawledPlacesPerSearch?: number;
   language?: string;
   includeWebResults?: boolean;
+  scrapeContacts?: boolean; // Extracts emails from business websites ($1-2/1K places)
 }
 
 interface ApifyGoogleMapsResult {
@@ -53,6 +65,7 @@ export async function scrapeGoogleMapsApify(
     maxCrawledPlacesPerSearch: limit,
     language: "es",
     includeWebResults: false,
+    scrapeContacts: true, // KEY: extract emails from business websites
   };
 
   if (location) {
@@ -82,7 +95,14 @@ export async function scrapeGoogleMapsApify(
 }
 
 // ====================================
-// LinkedIn via Apify
+// LinkedIn via Apify (NO COOKIES NEEDED)
+// Actor: harvestapi/linkedin-profile-search
+// Docs: https://apify.com/harvestapi/linkedin-profile-search
+// Features:
+//   - Search by keyword + location filters
+//   - "Full + email search" mode includes SMTP-validated email lookup
+//   - No LinkedIn cookies or account required
+//   - 8,135+ users, 620K+ runs
 // ====================================
 
 interface ApifyLinkedInResult {
@@ -102,36 +122,60 @@ export async function scrapeLinkedInApify(
 ): Promise<ApifyLinkedInResult[]> {
   const client = await getApifyClient(apiToken);
 
-  const searchUrl = location
-    ? `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keyword)}&geoUrn=${encodeURIComponent(location)}`
-    : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keyword)}`;
+  // harvestapi/linkedin-profile-search input
+  // profileScraperMode: "Full + email search" → $0.01/profile (includes email lookup)
+  const actorInput: Record<string, unknown> = {
+    searchQuery: keyword,
+    profileScraperMode: "Full + email search",
+    maxItems: limit,
+  };
+
+  if (location) {
+    actorInput.locations = [location];
+  }
 
   const run = await client
-    .actor("curious_coder/linkedin-profile-scraper")
-    .call(
-      {
-        startUrls: [{ url: searchUrl }],
-        maxResults: limit,
-      },
-      { waitSecs: 55 }
-    );
+    .actor("harvestapi/linkedin-profile-search")
+    .call(actorInput, { waitSecs: 55 });
 
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
-  return items.map((item: Record<string, unknown>) => ({
-    fullName: (item.fullName as string) || (item.name as string) || "",
-    headline: (item.headline as string) || null,
-    company: (item.company as string) || null,
-    location: (item.location as string) || null,
-    profileUrl: (item.profileUrl as string) || (item.url as string) || "",
-    email: (item.email as string) || (item.emailAddress as string) || null,
-  }));
+  return items.map((item: Record<string, unknown>) => {
+    // Map the harvestapi output to our interface
+    const firstName = (item.firstName as string) || "";
+    const lastName = (item.lastName as string) || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    // Extract company from currentPosition array
+    const currentPosition = item.currentPosition as Array<Record<string, unknown>> | undefined;
+    const company = (currentPosition?.[0]?.companyName as string) || null;
+
+    // Extract location text
+    const loc = item.location as Record<string, unknown> | undefined;
+    const locationText = (loc?.linkedinText as string) || null;
+
+    // Extract email (the actor uses "Full + email search" mode)
+    const email =
+      (item.email as string) ||
+      (item.emailAddress as string) ||
+      (item.workEmail as string) ||
+      null;
+
+    return {
+      fullName: fullName || (item.fullName as string) || "",
+      headline: (item.headline as string) || (item.occupation as string) || null,
+      company,
+      location: locationText,
+      profileUrl: (item.linkedinUrl as string) || (item.profileUrl as string) || "",
+      email: email && email.includes("@") ? email : null,
+    };
+  });
 }
 
 /**
- * Enrich LinkedIn profiles with emails using anchor/linkedin-to-email actor.
- * Takes profile URLs and returns a map of URL → email.
- * Only processes profiles that don't already have emails.
+ * Backup enrichment: Find emails for LinkedIn profiles using anchor/linkedin-to-email.
+ * Cost: $9/1,000 lookups. Only use as fallback when the main actor didn't find emails.
+ * Docs: https://apify.com/anchor/linkedin-to-email
  */
 export async function enrichLinkedInEmails(
   profileUrls: string[],
@@ -173,6 +217,16 @@ export async function enrichLinkedInEmails(
 
 // ====================================
 // Instagram via Apify
+// Two actors depending on input:
+//   Usernames → apify/instagram-profile-scraper (dedicated, 2 params)
+//   Search    → apify/instagram-scraper (supports search + searchType)
+// Docs:
+//   https://apify.com/apify/instagram-profile-scraper
+//   https://apify.com/apify/instagram-scraper
+//
+// IMPORTANT: Neither actor returns businessEmail or businessPhoneNumber.
+// Instagram does NOT expose these publicly. Emails must be extracted from
+// the biography text or the externalUrl website.
 // ====================================
 
 interface ApifyInstagramResult {
@@ -197,26 +251,50 @@ export async function scrapeInstagramApify(
 ): Promise<ApifyInstagramResult[]> {
   const client = await getApifyClient(apiToken);
 
-  const actorInput: Record<string, unknown> = {
-    resultsLimit: limit,
-  };
-
   if (input.usernames && input.usernames.length > 0) {
-    actorInput.directUrls = input.usernames.map(
-      (u) => `https://www.instagram.com/${u}/`
-    );
+    // ── Specific usernames → apify/instagram-profile-scraper ──
+    // This actor only accepts usernames (not search queries)
+    const cleanUsernames = input.usernames
+      .map((u) => u.replace(/^@/, "").trim())
+      .filter(Boolean);
+
+    const run = await client
+      .actor("apify/instagram-profile-scraper")
+      .call(
+        { usernames: cleanUsernames },
+        { waitSecs: 55 }
+      );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    return mapInstagramResults(items);
+
   } else if (input.query) {
-    actorInput.search = input.query;
-    actorInput.searchType = "user";
+    // ── Keyword search → apify/instagram-scraper ──
+    // This actor supports search with searchType: "user"
+    const run = await client
+      .actor("apify/instagram-scraper")
+      .call(
+        {
+          search: input.query,
+          searchType: "user",
+          resultsType: "details",
+          searchLimit: Math.min(limit, 250), // Actor max: 250
+        },
+        { waitSecs: 55 }
+      );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    return mapInstagramResults(items);
   }
 
-  const run = await client
-    .actor("apify/instagram-profile-scraper")
-    .call(actorInput, { waitSecs: 55 });
+  return [];
+}
 
-  const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-  return items.map((item: Record<string, unknown>) => ({
+/** Map raw Apify items to our interface (works for both Instagram actors) */
+function mapInstagramResults(
+  items: Record<string, unknown>[]
+): ApifyInstagramResult[] {
+  return items.map((item) => ({
     username: (item.username as string) || "",
     fullName: (item.fullName as string) || "",
     biography: (item.biography as string) || null,
@@ -259,7 +337,7 @@ export function normalizeGoogleMapsApify(
   results: ApifyGoogleMapsResult[]
 ): NormalizedLead[] {
   return results.map((r) => ({
-    source: "apify",
+    source: "google_maps",
     businessName: r.title,
     contactPerson: null,
     contactTitle: null,
@@ -282,7 +360,7 @@ export function normalizeLinkedInApify(
   results: ApifyLinkedInResult[]
 ): NormalizedLead[] {
   return results.map((r) => ({
-    source: "apify",
+    source: "linkedin",
     businessName: r.company,
     contactPerson: r.fullName,
     contactTitle: r.headline,
@@ -313,7 +391,7 @@ export function normalizeInstagramApify(
     }
 
     return {
-      source: "apify",
+      source: "instagram",
       businessName: r.isBusinessAccount ? r.fullName : null,
       contactPerson: r.fullName,
       contactTitle: null,
@@ -360,8 +438,14 @@ function extractEmailFromText(text: string): string | null {
 
 /**
  * Enrich leads with emails by scraping their websites.
- * Uses anchor/email-phone-extractor actor.
- * Takes website URLs and returns a map of URL → { email, phone }.
+ * Actor: anchor/email-phone-extractor
+ * Docs: https://apify.com/anchor/email-phone-extractor
+ *
+ * Optimized params based on documentation:
+ * - maxDepth: 2 (contact info is typically within 2 clicks of homepage)
+ * - sameDomain: true (avoid crawling external links)
+ * - maxRequestsPerStartUrl: 5 (limit per-domain crawling)
+ * - proxyConfig: useApifyProxy (avoid blocks/timeouts)
  */
 export async function enrichEmailsFromWebsites(
   websiteUrls: string[],
@@ -381,8 +465,12 @@ export async function enrichEmailsFromWebsites(
       .call(
         {
           startUrls: urls.map((url) => ({ url })),
-          maxDepth: 1,
-          maxRequests: urls.length * 3, // visit up to 3 pages per site
+          maxDepth: 2, // Follow links 2 levels deep (contact/about pages)
+          sameDomain: true, // Stay within the same domain
+          maxRequestsPerStartUrl: 5, // Max 5 pages per website
+          maxRequests: urls.length * 5, // Global cap
+          proxyConfig: { useApifyProxy: true }, // Avoid blocks
+          considerChildFrames: true, // Check iframes for contact info
         },
         { waitSecs: 40 }
       );

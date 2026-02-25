@@ -9,7 +9,6 @@ import {
   normalizeGoogleMapsApify,
   normalizeLinkedInApify,
   normalizeInstagramApify,
-  enrichLinkedInEmails,
   enrichLeadsWithEmails,
   type NormalizedLead,
 } from "@/lib/scrapers/apify";
@@ -67,25 +66,11 @@ export async function POST(request: NextRequest) {
           break;
         }
         case "linkedin": {
+          // harvestapi/linkedin-profile-search includes built-in email search
+          // No separate enrichment step needed — emails come with the profile data
           const results = await scrapeLinkedInApify(query, location, maxResults, apiToken);
           normalized = normalizeLinkedInApify(results);
-
-          // Second pass: enrich profiles that don't have emails
-          const noEmailUrls = normalized
-            .filter((l) => !l.email && l.profileUrl)
-            .map((l) => l.profileUrl!);
-
-          if (noEmailUrls.length > 0) {
-            console.log(`[apify] Enriching ${noEmailUrls.length} LinkedIn profiles with emails...`);
-            const emailMap = await enrichLinkedInEmails(noEmailUrls, apiToken);
-            for (const lead of normalized) {
-              if (!lead.email && lead.profileUrl) {
-                const email = emailMap.get(lead.profileUrl);
-                if (email) lead.email = email;
-              }
-            }
-            console.log(`[apify] LinkedIn email enrichment: ${emailMap.size} emails found`);
-          }
+          console.log(`[apify] LinkedIn: ${results.length} profiles scraped, ${results.filter(r => r.email).length} with emails`);
           break;
         }
         case "instagram": {
