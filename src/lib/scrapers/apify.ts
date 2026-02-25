@@ -147,7 +147,7 @@ export async function enrichLinkedInEmails(
       .actor("anchor/linkedin-to-email")
       .call(
         {
-          urls: profileUrls.map((url) => ({ url })),
+          startUrls: profileUrls.map((url) => ({ url })),
         },
         { waitSecs: 45 }
       );
