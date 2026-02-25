@@ -50,7 +50,7 @@ const sourceLabels: Record<string, { label: string; color: string }> = {
   google_maps: { label: "Google Maps", color: "bg-emerald-500" },
   linkedin: { label: "LinkedIn", color: "bg-blue-500" },
   instagram: { label: "Instagram", color: "bg-pink-500" },
-  facebook: { label: "Facebook", color: "bg-blue-600" },
+  facebook: { label: "Facebook", color: "bg-indigo-500" },
   apify: { label: "Apify (legacy)", color: "bg-amber-500" },
 };
 
@@ -250,7 +250,7 @@ export default function DashboardPage() {
           <Link href="/search" className="group rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-emerald-500/30 hover:bg-zinc-900 transition-all">
             <Search className="h-8 w-8 text-emerald-400 mb-3" />
             <h3 className="font-semibold text-zinc-200 group-hover:text-emerald-400 transition-colors">Nueva Búsqueda</h3>
-            <p className="text-sm text-zinc-500 mt-1">Scrapea leads de Google Maps, LinkedIn o Instagram</p>
+            <p className="text-sm text-zinc-500 mt-1">Scrapea leads de Google Maps, LinkedIn, Instagram o Facebook</p>
           </Link>
           <Link href="/campaigns/new" className="group rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-blue-500/30 hover:bg-zinc-900 transition-all">
             <Megaphone className="h-8 w-8 text-blue-400 mb-3" />

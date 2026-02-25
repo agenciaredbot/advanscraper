@@ -43,9 +43,9 @@ const sources = [
     label: "Facebook",
     description: "Páginas de negocios",
     icon: Facebook,
-    color: "text-blue-500",
-    borderColor: "border-blue-500/30",
-    bgColor: "bg-blue-500/10",
+    color: "text-indigo-400",
+    borderColor: "border-indigo-500/30",
+    bgColor: "bg-indigo-500/10",
   },
 ];
 

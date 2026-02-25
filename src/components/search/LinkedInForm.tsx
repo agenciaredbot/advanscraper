@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Linkedin, Search, Loader2 } from "lucide-react";
+import { Linkedin, Search, Loader2, Mail, Briefcase, User, MapPin } from "lucide-react";
 
 interface LinkedInFormProps {
   onSubmit: (data: { keyword: string; location: string; maxResults: number }) => void;
@@ -73,7 +73,28 @@ export function LinkedInForm({ onSubmit, isLoading }: LinkedInFormProps) {
               onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || 25)}
               className="bg-zinc-800 border-zinc-700 text-zinc-100 w-24"
             />
-            <p className="text-xs text-zinc-500">Incluye enriquecimiento de emails automático</p>
+          </div>
+
+          {/* Data info */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 space-y-2">
+            <p className="text-xs font-medium text-zinc-400">Datos que obtendrás:</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-400">
+                <User className="h-3 w-3" /> Nombre completo
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-400">
+                <Briefcase className="h-3 w-3" /> Empresa y cargo
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-400">
+                <Mail className="h-3 w-3" /> Email
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-400">
+                <MapPin className="h-3 w-3" /> Ubicación
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-500">
+              El email se busca automáticamente con verificación SMTP. No requiere cookies de LinkedIn.
+            </p>
           </div>
 
           <Button

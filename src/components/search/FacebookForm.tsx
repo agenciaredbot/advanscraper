@@ -5,7 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Loader2 } from "lucide-react";
+import {
+  Facebook,
+  Search,
+  Loader2,
+  Mail,
+  Phone,
+  Globe,
+  MapPinned,
+  Users,
+  Star,
+  Tag,
+} from "lucide-react";
 
 interface FacebookFormProps {
   onSubmit: (data: {
@@ -33,13 +44,7 @@ export function FacebookForm({ onSubmit, isLoading }: FacebookFormProps) {
     <Card className="border-zinc-800 bg-zinc-900/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-zinc-100">
-          <svg
-            className="h-5 w-5 text-blue-500"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-          </svg>
+          <Facebook className="h-5 w-5 text-indigo-400" />
           Facebook Pages
         </CardTitle>
       </CardHeader>
@@ -79,18 +84,16 @@ export function FacebookForm({ onSubmit, isLoading }: FacebookFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="fb-location" className="text-zinc-300">
-              Ubicación <span className="text-zinc-500">(opcional)</span>
+              Ubicación <span className="text-zinc-500">(opcional, solo keyword)</span>
             </Label>
             <Input
               id="fb-location"
               placeholder='Ej: "Bogotá, Colombia", "Mexico City, Mexico"'
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              disabled={!!pageUrl.trim()}
+              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 disabled:opacity-40"
             />
-            <p className="text-xs text-zinc-500">
-              Formato: Ciudad, País. Solo aplica para búsqueda por keyword.
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -108,14 +111,42 @@ export function FacebookForm({ onSubmit, isLoading }: FacebookFormProps) {
               }
               className="bg-zinc-800 border-zinc-700 text-zinc-100 w-24"
             />
-            <p className="text-xs text-zinc-500">
-              Incluye email, teléfono, website y dirección de páginas públicas
+          </div>
+
+          {/* Data info */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 space-y-2">
+            <p className="text-xs font-medium text-zinc-400">Datos que obtendrás:</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Mail className="h-3 w-3" /> Email
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Phone className="h-3 w-3" /> Teléfono
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Globe className="h-3 w-3" /> Website
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <MapPinned className="h-3 w-3" /> Dirección
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Users className="h-3 w-3" /> Seguidores
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Star className="h-3 w-3" /> Rating
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-400">
+                <Tag className="h-3 w-3" /> Categoría
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-500">
+              Datos extraídos de páginas públicas de Facebook. No requiere login.
             </p>
           </div>
 
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
             disabled={isLoading || (!query.trim() && !pageUrl.trim())}
           >
             {isLoading ? (

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Instagram, Search, Loader2 } from "lucide-react";
+import { Instagram, Search, Loader2, Mail, Globe, Users, User, Tag } from "lucide-react";
 
 interface InstagramFormProps {
   onSubmit: (data: { username: string; query: string; maxResults: number }) => void;
@@ -78,7 +78,31 @@ export function InstagramForm({ onSubmit, isLoading }: InstagramFormProps) {
               onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || 20)}
               className="bg-zinc-800 border-zinc-700 text-zinc-100 w-24"
             />
-            <p className="text-xs text-zinc-500">Incluye extracción de emails de bios y websites</p>
+          </div>
+
+          {/* Data info */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 space-y-2">
+            <p className="text-xs font-medium text-zinc-400">Datos que obtendrás:</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[11px] text-pink-400">
+                <User className="h-3 w-3" /> Nombre y username
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[11px] text-pink-400">
+                <Mail className="h-3 w-3" /> Email
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[11px] text-pink-400">
+                <Globe className="h-3 w-3" /> Website
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[11px] text-pink-400">
+                <Users className="h-3 w-3" /> Seguidores
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/10 px-2 py-0.5 text-[11px] text-pink-400">
+                <Tag className="h-3 w-3" /> Categoría
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-500">
+              Los emails se extraen de la bio y del website vinculado automáticamente.
+            </p>
           </div>
 
           <Button
