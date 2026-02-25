@@ -117,7 +117,9 @@ export function ResultsTable({
               </TableHead>
               <TableHead className="text-zinc-400">Negocio</TableHead>
               <TableHead className="text-zinc-400">Fuente</TableHead>
-              <TableHead className="text-zinc-400">Contacto</TableHead>
+              <TableHead className="text-zinc-400">Teléfono</TableHead>
+              <TableHead className="text-zinc-400">Email</TableHead>
+              <TableHead className="text-zinc-400">Website</TableHead>
               <TableHead className="text-zinc-400">Ciudad</TableHead>
               <TableHead className="text-zinc-400">Rating</TableHead>
               <TableHead className="text-zinc-400">Acciones</TableHead>
@@ -171,32 +173,46 @@ export function ResultsTable({
                   <TableCell>
                     <Badge className={srcConfig.color}>{srcConfig.label}</Badge>
                   </TableCell>
+                  {/* Teléfono */}
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {lead.email && (
-                        <span className="flex items-center gap-1 text-xs text-zinc-400">
-                          <Mail className="h-3 w-3" />
-                          {lead.email}
+                    {lead.phone ? (
+                      <span className="flex items-center gap-1 text-xs text-zinc-400">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        {lead.phone}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
+                  </TableCell>
+                  {/* Email */}
+                  <TableCell>
+                    {lead.email ? (
+                      <span className="flex items-center gap-1 text-xs text-zinc-400">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate max-w-[180px]">{lead.email}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
+                  </TableCell>
+                  {/* Website */}
+                  <TableCell>
+                    {lead.website ? (
+                      <a
+                        href={lead.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 hover:underline"
+                      >
+                        <Globe className="h-3 w-3 shrink-0" />
+                        <span className="truncate max-w-[150px]">
+                          {lead.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         </span>
-                      )}
-                      {lead.phone && (
-                        <span className="flex items-center gap-1 text-xs text-zinc-400">
-                          <Phone className="h-3 w-3" />
-                          {lead.phone}
-                        </span>
-                      )}
-                      {lead.website && (
-                        <span className="flex items-center gap-1 text-xs text-zinc-400">
-                          <Globe className="h-3 w-3" />
-                          <span className="truncate max-w-[150px]">
-                            {lead.website.replace(/^https?:\/\//, "")}
-                          </span>
-                        </span>
-                      )}
-                      {!lead.email && !lead.phone && !lead.website && (
-                        <span className="text-xs text-zinc-600">Sin datos</span>
-                      )}
-                    </div>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
                     {lead.city || "—"}
