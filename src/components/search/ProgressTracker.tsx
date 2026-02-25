@@ -1,162 +1,204 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, Ban } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, Mail } from "lucide-react";
 
-interface JobProgress {
-  phase: string;
-  current: number;
-  total: number;
-  message: string;
-}
-
-interface JobData {
-  id: string;
-  status: string;
-  progress: JobProgress;
+interface StatusResponse {
+  status: "running" | "completed" | "failed";
+  phase?: string;
+  count?: number;
+  enrichedEmails?: number;
+  message?: string;
   error?: string;
-  result?: { count: number };
+  progress?: {
+    itemCount: number;
+    durationSecs: number;
+  };
 }
 
 interface ProgressTrackerProps {
-  jobId: string;
-  onComplete?: (result: unknown) => void;
-  onCancel?: () => void;
+  searchId: string;
+  onComplete?: (count: number) => void;
+  onError?: (error: string) => void;
 }
 
-export function ProgressTracker({ jobId, onComplete, onCancel }: ProgressTrackerProps) {
-  const [job, setJob] = useState<JobData | null>(null);
+const PHASE_LABELS: Record<string, string> = {
+  scraping: "Scrapeando datos",
+  enriching: "Enriqueciendo emails",
+  done: "Completado",
+};
+
+export function ProgressTracker({ searchId, onComplete, onError }: ProgressTrackerProps) {
+  const [data, setData] = useState<StatusResponse | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [polling, setPolling] = useState(true);
 
+  // Elapsed time counter
   useEffect(() => {
-    if (!jobId || !polling) return;
+    const timer = setInterval(() => {
+      setElapsed((e) => e + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) return;
-        const data: JobData = await res.json();
-        setJob(data);
-
-        if (data.status === "completed" || data.status === "failed" || data.status === "cancelled") {
-          setPolling(false);
-          if (data.status === "completed" && onComplete) {
-            onComplete(data.result);
-          }
-        }
-      } catch {
-        // Network error, keep polling
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [jobId, polling, onComplete]);
-
-  const handleCancel = async () => {
+  // Poll /api/scrape/status every 3 seconds
+  const poll = useCallback(async () => {
     try {
-      await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
-      onCancel?.();
+      const res = await fetch(`/api/scrape/status?searchId=${searchId}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Error de conexión" }));
+        setData({ status: "failed", error: errData.error });
+        setPolling(false);
+        onError?.(errData.error);
+        return;
+      }
+
+      const statusData: StatusResponse = await res.json();
+      setData(statusData);
+
+      if (statusData.status === "completed") {
+        setPolling(false);
+        onComplete?.(statusData.count || 0);
+      } else if (statusData.status === "failed") {
+        setPolling(false);
+        onError?.(statusData.error || "Error desconocido");
+      }
     } catch {
-      // Error cancelling
+      // Network error — keep polling
     }
+  }, [searchId, onComplete, onError]);
+
+  useEffect(() => {
+    if (!searchId || !polling) return;
+
+    // First poll immediately
+    poll();
+
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, [searchId, polling, poll]);
+
+  const phase = data?.phase || "scraping";
+  const isRunning = !data || data.status === "running";
+  const isCompleted = data?.status === "completed";
+  const isFailed = data?.status === "failed";
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
-
-  if (!job) {
-    return (
-      <Card className="border-zinc-800 bg-zinc-900/50">
-        <CardContent className="flex items-center justify-center p-8">
-          <Loader2 className="h-6 w-6 animate-spin text-emerald-400 mr-2" />
-          <span className="text-zinc-400">Conectando con el job...</span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const progress =
-    job.progress.total > 0
-      ? (job.progress.current / job.progress.total) * 100
-      : 0;
-
-  const statusConfig: Record<string, { icon: React.ReactNode; badge: string; color: string }> = {
-    pending: {
-      icon: <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />,
-      badge: "Pendiente",
-      color: "bg-zinc-500/20 text-zinc-400",
-    },
-    running: {
-      icon: <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />,
-      badge: "En progreso",
-      color: "bg-emerald-500/20 text-emerald-400",
-    },
-    completed: {
-      icon: <CheckCircle2 className="h-5 w-5 text-emerald-400" />,
-      badge: "Completado",
-      color: "bg-emerald-500/20 text-emerald-400",
-    },
-    failed: {
-      icon: <XCircle className="h-5 w-5 text-red-400" />,
-      badge: "Error",
-      color: "bg-red-500/20 text-red-400",
-    },
-    cancelled: {
-      icon: <Ban className="h-5 w-5 text-amber-400" />,
-      badge: "Cancelado",
-      color: "bg-amber-500/20 text-amber-400",
-    },
-  };
-
-  const config = statusConfig[job.status] || statusConfig.pending;
 
   return (
     <Card className="border-zinc-800 bg-zinc-900/50">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="flex items-center gap-2 text-zinc-100 text-lg">
-          {config.icon}
-          {job.progress.phase}
+          {isRunning && <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />}
+          {isCompleted && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+          {isFailed && <XCircle className="h-5 w-5 text-red-400" />}
+          {isRunning
+            ? PHASE_LABELS[phase] || "Procesando..."
+            : isCompleted
+              ? "Búsqueda completada"
+              : "Error en búsqueda"}
         </CardTitle>
-        <Badge className={config.color}>{config.badge}</Badge>
+        <div className="flex items-center gap-2">
+          {isRunning && (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
+              En progreso
+            </Badge>
+          )}
+          {isCompleted && (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
+              Completado
+            </Badge>
+          )}
+          {isFailed && (
+            <Badge className="bg-red-500/20 text-red-400 border-0">
+              Error
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-400">{job.progress.message}</span>
-            {job.progress.total > 0 && (
-              <span className="text-zinc-500">
-                {job.progress.current}/{job.progress.total}
+        {/* Progress info */}
+        {isRunning && (
+          <div className="space-y-3">
+            {/* Indeterminate progress animation */}
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="absolute h-full w-1/3 animate-pulse rounded-full bg-emerald-500/60"
+                style={{
+                  animation: "indeterminate 1.5s ease-in-out infinite",
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-400">
+                {data?.message || "Iniciando búsqueda..."}
               </span>
+              <span className="flex items-center gap-1 text-zinc-500">
+                <Clock className="h-3.5 w-3.5" />
+                {formatTime(data?.progress?.durationSecs || elapsed)}
+              </span>
+            </div>
+
+            {data?.progress && data.progress.itemCount > 0 && (
+              <div className="flex items-center gap-2 text-sm text-zinc-500">
+                <span>{data.progress.itemCount} items encontrados</span>
+              </div>
+            )}
+
+            {phase === "enriching" && data?.count && (
+              <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <Mail className="h-3.5 w-3.5" />
+                <span>{data.count} leads guardados, buscando emails en websites...</span>
+              </div>
             )}
           </div>
-          <Progress value={progress} className="h-2" />
-        </div>
+        )}
 
-        {job.error && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-            {job.error}
+        {/* Completed state */}
+        {isCompleted && (
+          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4">
+            <p className="text-sm text-emerald-400 font-medium">
+              {data.message || `¡${data.count} leads encontrados!`}
+            </p>
+            {data.enrichedEmails && data.enrichedEmails > 0 && (
+              <p className="text-xs text-emerald-400/70 mt-1">
+                {data.enrichedEmails} emails encontrados via websites
+              </p>
+            )}
           </div>
         )}
 
-        {job.status === "completed" && job.result && (
-          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
-            ¡{job.result.count} leads encontrados!
+        {/* Error state */}
+        {isFailed && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
+            <p className="text-sm text-red-400">
+              {data?.error || "Error desconocido"}
+            </p>
           </div>
         )}
 
-        {(job.status === "running" || job.status === "pending") && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCancel}
-            className="border-zinc-700 text-zinc-400 hover:text-red-400 hover:border-red-500/30"
-          >
-            <Ban className="mr-2 h-3 w-3" />
-            Cancelar
-          </Button>
+        {/* Helpful tip for long searches */}
+        {isRunning && elapsed > 30 && (
+          <p className="text-xs text-zinc-600">
+            Las búsquedas grandes pueden tomar varios minutos. No es necesario cerrar esta pestaña.
+          </p>
         )}
       </CardContent>
+
+      {/* CSS for indeterminate animation */}
+      <style jsx>{`
+        @keyframes indeterminate {
+          0% { left: -33%; }
+          100% { left: 100%; }
+        }
+      `}</style>
     </Card>
   );
 }

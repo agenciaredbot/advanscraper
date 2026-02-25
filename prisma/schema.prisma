@@ -45,6 +45,13 @@ model Search {
   errorMessage String?
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
+
+  // Async Apify tracking fields
+  apifyRunId   String?   // Apify run ID for polling status
+  apifyActorId String?   // Actor that was executed (e.g. "compass/crawler-google-places")
+  apifyPhase   String?   // Current phase: "scraping" | "enriching"
+  enrichRunId  String?   // Separate run ID for email enrichment phase
+
   leads        Lead[]
 
   @@index([userId])

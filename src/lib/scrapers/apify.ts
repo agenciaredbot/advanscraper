@@ -675,3 +675,274 @@ export async function enrichLeadsWithEmails(
 
   return count;
 }
+
+// ====================================
+// ASYNC Apify Functions (Start → Poll → Fetch)
+// Used by /api/scrape/start and /api/scrape/status
+// ====================================
+
+export interface ActorRunInfo {
+  runId: string;
+  datasetId: string | null;
+  status: string; // READY, RUNNING, SUCCEEDED, FAILED, ABORTING, ABORTED, TIMED-OUT
+  startedAt: string | null;
+  finishedAt: string | null;
+  stats: {
+    itemCount: number;
+    durationMs: number;
+  };
+}
+
+/**
+ * Start an Apify actor WITHOUT waiting for it to finish.
+ * Uses waitForFinish=0 to return immediately.
+ */
+export async function startActorAsync(
+  actorId: string,
+  input: Record<string, unknown>,
+  token: string
+): Promise<ActorRunInfo> {
+  const res = await fetch(
+    `${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs?waitForFinish=0`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "Unknown error");
+    throw new Error(`Apify start failed (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  const run = data?.data;
+
+  if (!run?.id) {
+    throw new Error("Apify: no run ID returned");
+  }
+
+  return {
+    runId: run.id,
+    datasetId: run.defaultDatasetId || null,
+    status: run.status || "RUNNING",
+    startedAt: run.startedAt || null,
+    finishedAt: run.finishedAt || null,
+    stats: {
+      itemCount: run.stats?.outputItemCount || 0,
+      durationMs: run.stats?.runTimeSecs ? run.stats.runTimeSecs * 1000 : 0,
+    },
+  };
+}
+
+/**
+ * Check the status of a running Apify actor.
+ */
+export async function checkActorRun(
+  runId: string,
+  token: string
+): Promise<ActorRunInfo> {
+  const res = await fetch(
+    `${APIFY_BASE}/actor-runs/${runId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Apify status check failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  const run = data?.data;
+
+  return {
+    runId: run.id,
+    datasetId: run.defaultDatasetId || null,
+    status: run.status || "UNKNOWN",
+    startedAt: run.startedAt || null,
+    finishedAt: run.finishedAt || null,
+    stats: {
+      itemCount: run.stats?.outputItemCount || 0,
+      durationMs: run.stats?.runTimeSecs ? run.stats.runTimeSecs * 1000 : 0,
+    },
+  };
+}
+
+/**
+ * Fetch results from a completed Apify actor dataset.
+ */
+export async function fetchActorResults(
+  datasetId: string,
+  token: string
+): Promise<Record<string, unknown>[]> {
+  const res = await fetch(
+    `${APIFY_BASE}/datasets/${datasetId}/items?format=json`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Apify dataset fetch failed (${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Get the actor ID and input configuration for a given source + params.
+ * Centralizes the mapping: source → actor + input
+ */
+export function getActorConfig(
+  source: string,
+  params: {
+    query: string;
+    location?: string;
+    maxResults?: number;
+    usernames?: string[];
+    pageUrls?: string[];
+  }
+): { actorId: string; input: Record<string, unknown> } {
+  const { query, location, maxResults = 50, usernames, pageUrls } = params;
+
+  switch (source) {
+    case "google_maps": {
+      const input: Record<string, unknown> = {
+        searchStringsArray: [location ? `${query} en ${location}` : query],
+        maxCrawledPlacesPerSearch: maxResults,
+        language: "es",
+        includeWebResults: false,
+      };
+      if (location) input.locationQuery = location;
+      return { actorId: "compass/crawler-google-places", input };
+    }
+
+    case "linkedin": {
+      const input: Record<string, unknown> = {
+        searchQuery: query,
+        profileScraperMode: "Full + email search",
+        maxItems: maxResults,
+      };
+      if (location) input.locations = [location];
+      return { actorId: "harvestapi/linkedin-profile-search", input };
+    }
+
+    case "instagram": {
+      if (usernames && usernames.length > 0) {
+        const cleanUsernames = usernames
+          .map((u) => u.replace(/^@/, "").trim())
+          .filter(Boolean);
+        return {
+          actorId: "apify/instagram-profile-scraper",
+          input: { usernames: cleanUsernames },
+        };
+      }
+      return {
+        actorId: "apify/instagram-scraper",
+        input: {
+          search: query,
+          searchType: "user",
+          resultsType: "details",
+          searchLimit: Math.min(maxResults, 250),
+        },
+      };
+    }
+
+    case "facebook": {
+      if (pageUrls && pageUrls.length > 0) {
+        return {
+          actorId: "apify/facebook-pages-scraper",
+          input: {
+            startUrls: pageUrls.map((url) => ({ url })),
+            scrapeAbout: true,
+            scrapePosts: false,
+            scrapeReviews: false,
+            scrapeServices: false,
+            proxyConfiguration: { useApifyProxy: true },
+          },
+        };
+      }
+      const input: Record<string, unknown> = {
+        searchQueries: [query],
+        proxyConfiguration: { useApifyProxy: true },
+      };
+      if (location) input.location = location;
+      if (maxResults) input.maxResults = Math.min(maxResults, 1000);
+      return { actorId: "apify/facebook-search-scraper", input };
+    }
+
+    default:
+      throw new Error(`Fuente desconocida: ${source}`);
+  }
+}
+
+/**
+ * Normalize raw Apify items based on the source type.
+ * Dispatcher that calls the correct normalizer.
+ */
+export function normalizeBySource(
+  source: string,
+  rawItems: Record<string, unknown>[]
+): NormalizedLead[] {
+  switch (source) {
+    case "google_maps": {
+      const typed = rawItems.map((item) => ({
+        title: (item.title as string) || "",
+        categoryName: (item.categoryName as string) || null,
+        address: (item.address as string) || null,
+        city: (item.city as string) || null,
+        phone: (item.phone as string) || null,
+        website: (item.website as string) || null,
+        totalScore: (item.totalScore as number) || null,
+        reviewsCount: (item.reviewsCount as number) || null,
+        url: (item.url as string) || null,
+        emails: (item.emails as string[]) || [],
+      }));
+      return normalizeGoogleMapsApify(typed);
+    }
+
+    case "linkedin": {
+      const typed = rawItems.map((item) => {
+        const firstName = (item.firstName as string) || "";
+        const lastName = (item.lastName as string) || "";
+        const fullName = `${firstName} ${lastName}`.trim();
+        const currentPosition = item.currentPosition as Array<Record<string, unknown>> | undefined;
+        const company = (currentPosition?.[0]?.companyName as string) || null;
+        const loc = item.location as Record<string, unknown> | undefined;
+        const locationText = (loc?.linkedinText as string) || null;
+        const email =
+          (item.email as string) ||
+          (item.emailAddress as string) ||
+          (item.workEmail as string) ||
+          null;
+        return {
+          fullName: fullName || (item.fullName as string) || "",
+          headline: (item.headline as string) || (item.occupation as string) || null,
+          company,
+          location: locationText,
+          profileUrl: (item.linkedinUrl as string) || (item.profileUrl as string) || "",
+          email: email && email.includes("@") ? email : null,
+        };
+      });
+      return normalizeLinkedInApify(typed);
+    }
+
+    case "instagram": {
+      const typed = mapInstagramResults(rawItems);
+      return normalizeInstagramApify(typed);
+    }
+
+    case "facebook": {
+      const typed = mapFacebookResults(rawItems);
+      return normalizeFacebookApify(typed);
+    }
+
+    default:
+      throw new Error(`normalizeBySource: unknown source "${source}"`);
+  }
+}
