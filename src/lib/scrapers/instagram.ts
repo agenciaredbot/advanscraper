@@ -4,22 +4,15 @@
  * The actual scraping is done by the Playwright microservice
  * that uses a stealth browser to extract public Instagram profiles.
  *
- * Key resolution: system DB → env var
+ * Infrastructure keys (URL, API key) come directly from env vars —
+ * no DB lookup needed, these are server-side constants.
  */
 
-import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
-
-// Async helpers to resolve service config
-async function getServiceUrl(): Promise<string> {
-  return (
-    (await resolveApiKey(SYSTEM_KEY_NAMES.PLAYWRIGHT_SERVICE_URL)) ||
-    "http://localhost:3001"
-  );
-}
-
-async function getServiceApiKey(): Promise<string> {
-  return (await resolveApiKey(SYSTEM_KEY_NAMES.PLAYWRIGHT_SERVICE_API_KEY)) || "";
-}
+// Infrastructure keys — read once from env, no async DB queries needed
+const PLAYWRIGHT_SERVICE_URL =
+  process.env.PLAYWRIGHT_SERVICE_URL || "http://localhost:3001";
+const PLAYWRIGHT_SERVICE_API_KEY =
+  process.env.PLAYWRIGHT_SERVICE_API_KEY || "";
 
 export interface InstagramProfile {
   username: string;
@@ -43,8 +36,7 @@ export interface InstagramProfile {
  */
 export async function checkInstagramService(): Promise<boolean> {
   try {
-    const url = await getServiceUrl();
-    const res = await fetch(`${url}/health`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     return res.ok;
@@ -60,13 +52,11 @@ export async function scrapeInstagramProfile(
   username: string
 ): Promise<InstagramProfile | null> {
   try {
-    const [url, apiKey] = await Promise.all([getServiceUrl(), getServiceApiKey()]);
-
-    const res = await fetch(`${url}/scrape/profile`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/profile`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": apiKey,
+        "X-API-Key": PLAYWRIGHT_SERVICE_API_KEY,
       },
       body: JSON.stringify({ username }),
       signal: AbortSignal.timeout(50000), // 50s — fit within Vercel's 60s maxDuration
@@ -94,13 +84,11 @@ export async function searchInstagramProfiles(
   limit: number = 20
 ): Promise<InstagramProfile[]> {
   try {
-    const [url, apiKey] = await Promise.all([getServiceUrl(), getServiceApiKey()]);
-
-    const res = await fetch(`${url}/scrape/search`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": apiKey,
+        "X-API-Key": PLAYWRIGHT_SERVICE_API_KEY,
       },
       body: JSON.stringify({ query, limit }),
       signal: AbortSignal.timeout(55000), // 55s — fit within Vercel's 60s maxDuration
@@ -125,13 +113,11 @@ export async function scrapeInstagramBulk(
   usernames: string[]
 ): Promise<InstagramProfile[]> {
   try {
-    const [url, apiKey] = await Promise.all([getServiceUrl(), getServiceApiKey()]);
-
-    const res = await fetch(`${url}/scrape/bulk`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/bulk`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": apiKey,
+        "X-API-Key": PLAYWRIGHT_SERVICE_API_KEY,
       },
       body: JSON.stringify({ usernames }),
       signal: AbortSignal.timeout(55000), // 55s — fit within Vercel's 60s maxDuration

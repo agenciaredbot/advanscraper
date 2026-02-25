@@ -2,24 +2,17 @@
  * Playwright Scraper Microservice — HTTP Client
  *
  * Calls the external Playwright microservice (Railway/local) for scraping
- * that requires a real browser. Follows the same pattern as instagram.ts.
+ * that requires a real browser.
  *
- * Key resolution: system DB → env var
+ * Infrastructure keys (URL, API key) come directly from env vars —
+ * no DB lookup needed, these are server-side constants.
  */
 
-import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
-
-// Async helpers to resolve service config
-async function getServiceUrl(): Promise<string> {
-  return (
-    (await resolveApiKey(SYSTEM_KEY_NAMES.PLAYWRIGHT_SERVICE_URL)) ||
-    "http://localhost:3001"
-  );
-}
-
-async function getServiceApiKey(): Promise<string> {
-  return (await resolveApiKey(SYSTEM_KEY_NAMES.PLAYWRIGHT_SERVICE_API_KEY)) || "";
-}
+// Infrastructure keys — read once from env, no async DB queries needed
+const PLAYWRIGHT_SERVICE_URL =
+  process.env.PLAYWRIGHT_SERVICE_URL || "http://localhost:3001";
+const PLAYWRIGHT_SERVICE_API_KEY =
+  process.env.PLAYWRIGHT_SERVICE_API_KEY || "";
 
 // Interfaces (inlined to avoid dependency on playwright-importing legacy files)
 export interface GoogleMapsResult {
@@ -48,8 +41,7 @@ export interface LinkedInResult {
  */
 export async function checkPlaywrightService(): Promise<boolean> {
   try {
-    const url = await getServiceUrl();
-    const res = await fetch(`${url}/health`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     return res.ok;
@@ -67,8 +59,7 @@ export async function getPlaywrightServiceHealth(): Promise<{
   maxSessions: number;
 } | null> {
   try {
-    const url = await getServiceUrl();
-    const res = await fetch(`${url}/health`, {
+    const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -87,13 +78,11 @@ export async function scrapeGoogleMapsRemote(options: {
   maxResults?: number;
   extractEmails?: boolean;
 }): Promise<GoogleMapsResult[]> {
-  const [url, apiKey] = await Promise.all([getServiceUrl(), getServiceApiKey()]);
-
-  const res = await fetch(`${url}/scrape/google-maps`, {
+  const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/google-maps`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": apiKey,
+      "X-API-Key": PLAYWRIGHT_SERVICE_API_KEY,
     },
     body: JSON.stringify(options),
     signal: AbortSignal.timeout(45000), // 45s — leaves buffer for DB operations within Vercel's 60s
@@ -124,13 +113,11 @@ export async function scrapeLinkedInRemote(options: {
   location?: string;
   maxResults?: number;
 }): Promise<LinkedInResult[]> {
-  const [url, apiKey] = await Promise.all([getServiceUrl(), getServiceApiKey()]);
-
-  const res = await fetch(`${url}/scrape/linkedin`, {
+  const res = await fetch(`${PLAYWRIGHT_SERVICE_URL}/scrape/linkedin`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": apiKey,
+      "X-API-Key": PLAYWRIGHT_SERVICE_API_KEY,
     },
     body: JSON.stringify(options),
     signal: AbortSignal.timeout(45000), // 45s — leaves buffer for DB operations within Vercel's 60s
