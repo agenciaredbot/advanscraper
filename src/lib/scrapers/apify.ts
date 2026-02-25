@@ -91,6 +91,7 @@ interface ApifyLinkedInResult {
   company: string | null;
   location: string | null;
   profileUrl: string;
+  email: string | null;
 }
 
 export async function scrapeLinkedInApify(
@@ -123,7 +124,51 @@ export async function scrapeLinkedInApify(
     company: (item.company as string) || null,
     location: (item.location as string) || null,
     profileUrl: (item.profileUrl as string) || (item.url as string) || "",
+    email: (item.email as string) || (item.emailAddress as string) || null,
   }));
+}
+
+/**
+ * Enrich LinkedIn profiles with emails using anchor/linkedin-to-email actor.
+ * Takes profile URLs and returns a map of URL → email.
+ * Only processes profiles that don't already have emails.
+ */
+export async function enrichLinkedInEmails(
+  profileUrls: string[],
+  apiToken?: string
+): Promise<Map<string, string>> {
+  const emailMap = new Map<string, string>();
+  if (profileUrls.length === 0) return emailMap;
+
+  try {
+    const client = await getApifyClient(apiToken);
+
+    const run = await client
+      .actor("anchor/linkedin-to-email")
+      .call(
+        {
+          urls: profileUrls.map((url) => ({ url })),
+        },
+        { waitSecs: 45 }
+      );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+    for (const item of items) {
+      const url = (item as Record<string, unknown>).url as string;
+      const email = (item as Record<string, unknown>).email as string;
+      if (url && email && email.includes("@")) {
+        emailMap.set(url, email);
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "[apify] LinkedIn email enrichment failed (non-critical):",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  return emailMap;
 }
 
 // ====================================
@@ -241,7 +286,7 @@ export function normalizeLinkedInApify(
     businessName: r.company,
     contactPerson: r.fullName,
     contactTitle: r.headline,
-    email: null,
+    email: r.email,
     phone: null,
     website: null,
     address: null,
@@ -259,22 +304,156 @@ export function normalizeLinkedInApify(
 export function normalizeInstagramApify(
   results: ApifyInstagramResult[]
 ): NormalizedLead[] {
-  return results.map((r) => ({
-    source: "apify",
-    businessName: r.isBusinessAccount ? r.fullName : null,
-    contactPerson: r.fullName,
-    contactTitle: null,
-    email: r.businessEmail,
-    phone: r.businessPhoneNumber,
-    website: r.externalUrl,
-    address: null,
-    city: null,
-    category: r.businessCategoryName,
-    rating: null,
-    reviewsCount: null,
-    followers: r.followersCount,
-    isBusiness: r.isBusinessAccount,
-    bio: r.biography,
-    profileUrl: `https://instagram.com/${r.username}`,
-  }));
+  return results.map((r) => {
+    // Try to extract email from bio if businessEmail is not available
+    let email = r.businessEmail;
+    if (!email && r.biography) {
+      const bioEmail = extractEmailFromText(r.biography);
+      if (bioEmail) email = bioEmail;
+    }
+
+    return {
+      source: "apify",
+      businessName: r.isBusinessAccount ? r.fullName : null,
+      contactPerson: r.fullName,
+      contactTitle: null,
+      email,
+      phone: r.businessPhoneNumber,
+      website: r.externalUrl,
+      address: null,
+      city: null,
+      category: r.businessCategoryName,
+      rating: null,
+      reviewsCount: null,
+      followers: r.followersCount,
+      isBusiness: r.isBusinessAccount,
+      bio: r.biography,
+      profileUrl: `https://instagram.com/${r.username}`,
+    };
+  });
+}
+
+// ====================================
+// Email Enrichment Utilities
+// ====================================
+
+/**
+ * Extract email addresses from free text (bio, description, etc.)
+ */
+function extractEmailFromText(text: string): string | null {
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const matches = text.match(emailRegex);
+  if (!matches || matches.length === 0) return null;
+  // Return the first valid-looking email (skip common false positives)
+  for (const match of matches) {
+    const lower = match.toLowerCase();
+    if (
+      !lower.endsWith("@example.com") &&
+      !lower.endsWith("@test.com") &&
+      !lower.includes("noreply")
+    ) {
+      return match;
+    }
+  }
+  return matches[0];
+}
+
+/**
+ * Enrich leads with emails by scraping their websites.
+ * Uses anchor/email-phone-extractor actor.
+ * Takes website URLs and returns a map of URL → { email, phone }.
+ */
+export async function enrichEmailsFromWebsites(
+  websiteUrls: string[],
+  apiToken?: string
+): Promise<Map<string, { email: string | null; phone: string | null }>> {
+  const resultMap = new Map<string, { email: string | null; phone: string | null }>();
+  if (websiteUrls.length === 0) return resultMap;
+
+  // Limit to max 20 websites per batch to avoid timeout
+  const urls = websiteUrls.slice(0, 20);
+
+  try {
+    const client = await getApifyClient(apiToken);
+
+    const run = await client
+      .actor("anchor/email-phone-extractor")
+      .call(
+        {
+          startUrls: urls.map((url) => ({ url })),
+          maxDepth: 1,
+          maxRequests: urls.length * 3, // visit up to 3 pages per site
+        },
+        { waitSecs: 40 }
+      );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+    for (const item of items) {
+      const rec = item as Record<string, unknown>;
+      const pageUrl = (rec.url as string) || (rec.website as string) || "";
+      const emails = (rec.emails as string[]) || [];
+      const phones = (rec.phones as string[]) || (rec.phoneNumbers as string[]) || [];
+
+      // Match back to the original website URL
+      for (const origUrl of urls) {
+        try {
+          const origHost = new URL(origUrl).hostname.replace("www.", "");
+          if (pageUrl.includes(origHost) && !resultMap.has(origUrl)) {
+            resultMap.set(origUrl, {
+              email: emails[0] || null,
+              phone: phones[0] || null,
+            });
+          }
+        } catch {
+          // Invalid URL, skip
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "[apify] Website email enrichment failed (non-critical):",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  return resultMap;
+}
+
+/**
+ * Apply email enrichment to normalized leads that have website but no email.
+ * Mutates the leads array in place.
+ */
+export async function enrichLeadsWithEmails(
+  leads: NormalizedLead[],
+  apiToken?: string
+): Promise<number> {
+  // Collect leads that need enrichment
+  const needsEmail = leads.filter((l) => !l.email && l.website);
+  if (needsEmail.length === 0) return 0;
+
+  const websiteUrls = needsEmail
+    .map((l) => l.website!)
+    .filter((url) => url.startsWith("http"));
+
+  if (websiteUrls.length === 0) return 0;
+
+  const enriched = await enrichEmailsFromWebsites(websiteUrls, apiToken);
+  let count = 0;
+
+  for (const lead of needsEmail) {
+    if (!lead.website) continue;
+    const data = enriched.get(lead.website);
+    if (data) {
+      if (data.email && !lead.email) {
+        lead.email = data.email;
+        count++;
+      }
+      if (data.phone && !lead.phone) {
+        lead.phone = data.phone;
+      }
+    }
+  }
+
+  return count;
 }

@@ -9,6 +9,8 @@ import {
   normalizeGoogleMapsApify,
   normalizeLinkedInApify,
   normalizeInstagramApify,
+  enrichLinkedInEmails,
+  enrichLeadsWithEmails,
   type NormalizedLead,
 } from "@/lib/scrapers/apify";
 
@@ -67,6 +69,23 @@ export async function POST(request: NextRequest) {
         case "linkedin": {
           const results = await scrapeLinkedInApify(query, location, maxResults, apiToken);
           normalized = normalizeLinkedInApify(results);
+
+          // Second pass: enrich profiles that don't have emails
+          const noEmailUrls = normalized
+            .filter((l) => !l.email && l.profileUrl)
+            .map((l) => l.profileUrl!);
+
+          if (noEmailUrls.length > 0) {
+            console.log(`[apify] Enriching ${noEmailUrls.length} LinkedIn profiles with emails...`);
+            const emailMap = await enrichLinkedInEmails(noEmailUrls, apiToken);
+            for (const lead of normalized) {
+              if (!lead.email && lead.profileUrl) {
+                const email = emailMap.get(lead.profileUrl);
+                if (email) lead.email = email;
+              }
+            }
+            console.log(`[apify] LinkedIn email enrichment: ${emailMap.size} emails found`);
+          }
           break;
         }
         case "instagram": {
@@ -80,6 +99,14 @@ export async function POST(request: NextRequest) {
         }
         default:
           throw new Error(`Fuente desconocida: ${source}`);
+      }
+
+      // Enrich leads that have website but no email (Instagram bios, Google Maps, etc.)
+      const leadsNeedingEmail = normalized.filter((l) => !l.email && l.website);
+      if (leadsNeedingEmail.length > 0) {
+        console.log(`[apify] Enriching ${leadsNeedingEmail.length} leads with emails from websites...`);
+        const enriched = await enrichLeadsWithEmails(normalized, apiToken);
+        console.log(`[apify] Website email enrichment: ${enriched} emails found`);
       }
 
       // Save all leads to DB (bulk insert, skip duplicates)
