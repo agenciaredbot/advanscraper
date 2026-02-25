@@ -7,6 +7,7 @@ console.log(`   API_KEY=${process.env.API_KEY ? "✅ set" : "❌ MISSING"}`);
 import Fastify from "fastify";
 import { scrapeGoogleMaps, type GoogleMapsResult } from "./scrapers/google-maps.js";
 import { scrapeLinkedIn, type LinkedInResult } from "./scrapers/linkedin.js";
+import { launchStealthBrowser } from "./browser/launcher.js";
 import {
   scrapeInstagramProfile,
   searchInstagramProfiles,
@@ -51,6 +52,97 @@ fastify.get("/health", async () => {
     uptime: Math.floor(process.uptime()),
     memoryMB: Math.floor(process.memoryUsage().heapUsed / 1024 / 1024),
   };
+});
+
+// --- Debug: Screenshot (see what Google Maps looks like from Railway) ---
+fastify.get("/debug/screenshot", async (request, reply) => {
+  const { url } = request.query as { url?: string };
+  const targetUrl = url || "https://www.google.com/maps/search/restaurantes+en+Bogota/";
+
+  const startTime = Date.now();
+  let browser = null;
+  let context = null;
+
+  try {
+    console.log(`\n🔍 Debug screenshot: ${targetUrl}`);
+    const stealth = await launchStealthBrowser();
+    browser = stealth.browser;
+    context = stealth.context;
+    const page = await context.newPage();
+
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(5000);
+
+    const screenshot = await page.screenshot({ type: "jpeg", quality: 50 });
+    const pageTitle = await page.title();
+    const currentUrl = page.url();
+    const bodyText = await page.textContent("body").catch(() => "") || "";
+
+    // Check for key elements
+    const hasFeed = await page.locator('div[role="feed"]').count();
+    const hasLinks = await page.locator("a.hfpxzc").count();
+    const hasConsent = await page.locator('form[action*="consent"]').count();
+    const hasSearchBox = await page.locator("#searchboxinput").count();
+
+    const duration = Date.now() - startTime;
+
+    return {
+      url: currentUrl,
+      title: pageTitle,
+      duration,
+      elements: {
+        feedContainer: hasFeed,
+        placeLinks: hasLinks,
+        consentForm: hasConsent,
+        searchBox: hasSearchBox,
+      },
+      bodyTextPreview: bodyText.substring(0, 1000),
+      screenshotBase64: screenshot.toString("base64"),
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    return reply.code(500).send({ error: errorMsg, duration: Date.now() - startTime });
+  } finally {
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
+  }
+});
+
+// --- Debug: Test scrape (run actual scraper with logging) ---
+fastify.get("/debug/test-scrape", async (request, reply) => {
+  const { query, location } = request.query as { query?: string; location?: string };
+  const testQuery = query || "restaurantes";
+  const testLocation = location || "Bogota";
+
+  const startTime = Date.now();
+
+  try {
+    console.log(`\n🧪 Debug test scrape: "${testQuery}" in "${testLocation}"`);
+
+    const results = await scrapeGoogleMaps({
+      query: testQuery,
+      location: testLocation,
+      maxResults: 3,
+      extractEmails: false,
+    });
+
+    const duration = Date.now() - startTime;
+    return {
+      success: true,
+      results,
+      count: results.length,
+      duration,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    const stack = error instanceof Error ? error.stack : "";
+    return reply.code(500).send({
+      success: false,
+      error: errorMsg,
+      stack: stack?.split("\n").slice(0, 5).join("\n"),
+      duration: Date.now() - startTime,
+    });
+  }
 });
 
 // --- Google Maps Scrape ---
