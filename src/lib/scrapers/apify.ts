@@ -67,17 +67,19 @@ export async function scrapeGoogleMapsApify(
     maxCrawledPlacesPerSearch: limit,
     language: "es",
     includeWebResults: false,
-    scrapeContacts: true, // KEY: extract emails from business websites
+    // NOTE: scrapeContacts REMOVED — it makes the actor visit each business website
+    // which takes 2-5 minutes and exceeds the 60s Vercel limit.
+    // Email enrichment is handled separately via enrichEmailsFromWebsites() in the route.
   };
 
   if (location) {
     input.locationQuery = location;
   }
 
-  // Run the Google Maps Scraper actor
+  // Run the Google Maps Scraper actor (fast without scrapeContacts: ~15-25s)
   const run = await client
     .actor("compass/crawler-google-places")
-    .call(input, { waitSecs: 55 });
+    .call(input, { waitSecs: 45 });
 
   // Fetch results
   const { items } = await client.dataset(run.defaultDatasetId).listItems();

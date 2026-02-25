@@ -9,6 +9,7 @@ import {
 import {
   scrapeGoogleMapsApify,
   normalizeGoogleMapsApify,
+  enrichEmailsFromWebsites,
 } from "@/lib/scrapers/apify";
 import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ─── Strategy: Apify PRIMARY → Playwright FALLBACK ─────────────────
+    const startTime = Date.now();
     try {
       let leadsToSave: {
         source: string;
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
           }));
           usedProvider = "apify";
           console.log(
-            `[google-maps] Apify success: ${leadsToSave.length} results`
+            `[google-maps] Apify success: ${leadsToSave.length} results in ${Math.round((Date.now() - startTime) / 1000)}s`
           );
         } catch (apifyError) {
           console.warn(
@@ -183,6 +185,57 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // ── Email enrichment: scrape emails from business websites ──
+      // Only attempt if we have time left (Vercel limit: 60s, we need ~5s buffer for DB save)
+      const elapsedMs = Date.now() - startTime;
+      const timeLeftMs = 55_000 - elapsedMs; // 55s budget (5s buffer for DB operations)
+
+      if (timeLeftMs > 10_000 && apifyToken) {
+        // Only enrich if we have >10s left
+        const needsEmail = leadsToSave.filter(
+          (l) => !l.email && l.website && l.website.startsWith("http")
+        );
+
+        if (needsEmail.length > 0) {
+          console.log(
+            `[google-maps] Enriching ${needsEmail.length} leads (${Math.round(timeLeftMs / 1000)}s budget)...`
+          );
+          try {
+            const websiteUrls = needsEmail.map((l) => l.website!);
+            const enriched = await enrichEmailsFromWebsites(
+              websiteUrls.slice(0, 15), // Max 15 websites to keep under time budget
+              apifyToken
+            );
+
+            let enrichCount = 0;
+            for (const lead of needsEmail) {
+              if (!lead.website) continue;
+              const data = enriched.get(lead.website);
+              if (data?.email) {
+                lead.email = data.email;
+                enrichCount++;
+              }
+              if (data?.phone && !lead.phone) {
+                lead.phone = data.phone;
+              }
+            }
+            console.log(
+              `[google-maps] Enrichment: ${enrichCount} emails found from websites`
+            );
+          } catch (enrichError) {
+            // Enrichment is non-critical — continue with results we have
+            console.warn(
+              "[google-maps] Email enrichment failed (non-critical):",
+              enrichError instanceof Error ? enrichError.message : enrichError
+            );
+          }
+        }
+      } else {
+        console.log(
+          `[google-maps] Skipping email enrichment (only ${Math.round(timeLeftMs / 1000)}s left)`
+        );
+      }
+
       // ── Save results to DB (bulk insert, skip duplicates) ──
       const savedCount = await saveLeadsBulk(
         leadsToSave,
@@ -199,12 +252,15 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      const totalSecs = Math.round((Date.now() - startTime) / 1000);
+      const emailCount = leadsToSave.filter((l) => l.email).length;
+
       return NextResponse.json({
         success: true,
         searchId: search.id,
         count: savedCount,
         provider: usedProvider,
-        message: `¡${savedCount} leads encontrados!`,
+        message: `¡${savedCount} leads encontrados! (${emailCount} con email, ${totalSecs}s)`,
       });
     } catch (error) {
       const rawMsg =
