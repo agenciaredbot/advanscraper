@@ -239,3 +239,11 @@ model Export {
 
   @@index([userId])
 }
+
+// System-level settings (API keys, configuration)
+// Managed by superadmin, shared across all users
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}

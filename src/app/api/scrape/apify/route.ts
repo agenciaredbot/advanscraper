@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma, getOrCreateProfile } from "@/lib/db";
+import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 import {
   scrapeGoogleMapsApify,
   scrapeLinkedInApify,
@@ -32,12 +33,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's Apify token
+    // Get Apify token: user profile → system DB → env var
     const profile = await getOrCreateProfile(user.id, user.email ?? "");
-    const apiToken = profile.apifyApiToken || process.env.APIFY_API_TOKEN;
+    const apiToken = await resolveApiKey(SYSTEM_KEY_NAMES.APIFY_API_TOKEN, profile.apifyApiToken);
     if (!apiToken) {
       return NextResponse.json(
-        { error: "Configura tu API token de Apify en Settings" },
+        { error: "Configura tu API token de Apify en Settings o contacta al administrador" },
         { status: 400 }
       );
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma, getOrCreateProfile } from "@/lib/db";
+import { getSystemSetting, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 
 // GET — Get profile settings (auto-creates profile if not found)
 export async function GET() {
@@ -11,7 +12,14 @@ export async function GET() {
 
     const profile = await getOrCreateProfile(user.id, user.email ?? "", user.user_metadata?.name);
 
-    // Don't return full API keys, just indicate if set
+    // Check system-level keys (set by admin)
+    const [sysBrevo, sysAnthropic, sysApify] = await Promise.all([
+      getSystemSetting(SYSTEM_KEY_NAMES.BREVO_API_KEY),
+      getSystemSetting(SYSTEM_KEY_NAMES.ANTHROPIC_API_KEY),
+      getSystemSetting(SYSTEM_KEY_NAMES.APIFY_API_TOKEN),
+    ]);
+
+    // Don't return full API keys, just indicate if set (user or system level)
     return NextResponse.json({
       id: profile.id,
       email: profile.email,
@@ -19,10 +27,12 @@ export async function GET() {
       role: profile.role,
       isActive: profile.isActive,
       dailyLimit: profile.dailyLimit,
-      hasBrevoKey: !!profile.brevoApiKey,
+      hasBrevoKey: !!profile.brevoApiKey || !!sysBrevo,
       hasSendsparkKey: !!profile.sendsparkApiKey,
-      hasAnthropicKey: !!profile.anthropicApiKey,
-      hasApifyToken: !!profile.apifyApiToken,
+      hasAnthropicKey: !!profile.anthropicApiKey || !!sysAnthropic,
+      hasApifyToken: !!profile.apifyApiToken || !!sysApify,
+      // Let the UI know if system keys are configured by admin
+      systemKeysAvailable: !!(sysBrevo || sysAnthropic || sysApify),
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

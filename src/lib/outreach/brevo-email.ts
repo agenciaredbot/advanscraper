@@ -1,6 +1,9 @@
 /**
  * Brevo (formerly Sendinblue) email sending integration
+ * Resolution: user key → system DB key → env var
  */
+
+import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 
 interface SendEmailOptions {
   to: { email: string; name?: string };
@@ -24,11 +27,17 @@ export async function sendEmailViaBrevo(
   options: SendEmailOptions,
   apiKey?: string
 ): Promise<SendEmailResult> {
-  const key = apiKey || process.env.BREVO_API_KEY;
+  const key = await resolveApiKey(SYSTEM_KEY_NAMES.BREVO_API_KEY, apiKey);
   if (!key) throw new Error("Brevo API key no configurada");
 
-  const senderEmail = options.senderEmail || process.env.BREVO_SENDER_EMAIL;
-  const senderName = options.senderName || process.env.BREVO_SENDER_NAME || "LeadScraper Pro";
+  const senderEmail =
+    options.senderEmail ||
+    (await resolveApiKey(SYSTEM_KEY_NAMES.BREVO_SENDER_EMAIL)) ||
+    undefined;
+  const senderName =
+    options.senderName ||
+    (await resolveApiKey(SYSTEM_KEY_NAMES.BREVO_SENDER_NAME)) ||
+    "LeadScraper Pro";
 
   if (!senderEmail) throw new Error("Sender email no configurado");
 

@@ -6,10 +6,11 @@
  */
 
 import { ApifyClient } from "apify-client";
+import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 
-// Get API token from user profile or env
-function getApifyClient(apiToken?: string): ApifyClient {
-  const token = apiToken || process.env.APIFY_API_TOKEN;
+// Get API token: user key → system DB → env var
+async function getApifyClient(apiToken?: string): Promise<ApifyClient> {
+  const token = await resolveApiKey(SYSTEM_KEY_NAMES.APIFY_API_TOKEN, apiToken);
   if (!token) throw new Error("Apify API token no configurado");
   return new ApifyClient({ token });
 }
@@ -45,7 +46,7 @@ export async function scrapeGoogleMapsApify(
   limit: number = 50,
   apiToken?: string
 ): Promise<ApifyGoogleMapsResult[]> {
-  const client = getApifyClient(apiToken);
+  const client = await getApifyClient(apiToken);
 
   const input: ApifyGoogleMapsInput = {
     searchStringsArray: [location ? `${query} en ${location}` : query],
@@ -98,7 +99,7 @@ export async function scrapeLinkedInApify(
   limit: number = 50,
   apiToken?: string
 ): Promise<ApifyLinkedInResult[]> {
-  const client = getApifyClient(apiToken);
+  const client = await getApifyClient(apiToken);
 
   const searchUrl = location
     ? `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keyword)}&geoUrn=${encodeURIComponent(location)}`
@@ -149,7 +150,7 @@ export async function scrapeInstagramApify(
   limit: number = 50,
   apiToken?: string
 ): Promise<ApifyInstagramResult[]> {
-  const client = getApifyClient(apiToken);
+  const client = await getApifyClient(apiToken);
 
   const actorInput: Record<string, unknown> = {
     resultsLimit: limit,

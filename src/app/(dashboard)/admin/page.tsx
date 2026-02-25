@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,8 +41,20 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
+  Key,
+  Save,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Bot,
+  Mail,
+  Zap,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AdminStats {
   totalUsers: number;
@@ -78,9 +90,32 @@ interface Pagination {
   totalPages: number;
 }
 
+interface SystemApiKey {
+  key: string;
+  label: string;
+  description: string;
+  category: string;
+  hasValue: boolean;
+  maskedValue: string | null;
+}
+
+// Category icon mapping
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  IA: <Bot className="h-4 w-4 text-violet-400" />,
+  Email: <Mail className="h-4 w-4 text-blue-400" />,
+  Scraping: <Globe className="h-4 w-4 text-emerald-400" />,
+};
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export default function AdminPage() {
+  // ── Auth state ──
   const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  // ── Stats state ──
   const [stats, setStats] = useState<AdminStats | null>(null);
+
+  // ── Users state ──
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -99,7 +134,17 @@ export default function AdminPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  // Check authorization
+  // ── API Keys state ──
+  const [apiKeys, setApiKeys] = useState<SystemApiKey[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({});
+  const [apiKeyVisible, setApiKeyVisible] = useState<Record<string, boolean>>({});
+  const [savingKeys, setSavingKeys] = useState(false);
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Auth check
+  // ═════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     fetch("/api/settings/profile")
       .then((r) => r.json())
@@ -109,7 +154,10 @@ export default function AdminPage() {
       .catch(() => setAuthorized(false));
   }, []);
 
+  // ═════════════════════════════════════════════════════════════════════════
   // Fetch stats
+  // ═════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     if (!authorized) return;
     fetch("/api/admin/stats")
@@ -118,7 +166,10 @@ export default function AdminPage() {
       .catch(() => {});
   }, [authorized]);
 
+  // ═════════════════════════════════════════════════════════════════════════
   // Fetch users
+  // ═════════════════════════════════════════════════════════════════════════
+
   const fetchUsers = useCallback(
     (page = 1, search = "") => {
       if (!authorized) return;
@@ -143,6 +194,32 @@ export default function AdminPage() {
   useEffect(() => {
     fetchUsers(1, searchQuery);
   }, [authorized, fetchUsers, searchQuery]);
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Fetch API keys
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const fetchApiKeys = useCallback(() => {
+    if (!authorized) return;
+    setLoadingKeys(true);
+    fetch("/api/admin/api-keys")
+      .then((r) => r.json())
+      .then((data) => {
+        setApiKeys(data.keys || []);
+      })
+      .catch(() => {
+        toast.error("Error al cargar API keys del sistema");
+      })
+      .finally(() => setLoadingKeys(false));
+  }, [authorized]);
+
+  useEffect(() => {
+    fetchApiKeys();
+  }, [fetchApiKeys]);
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // User handlers
+  // ═════════════════════════════════════════════════════════════════════════
 
   const openEditDialog = (user: AdminUser) => {
     setEditUser(user);
@@ -171,7 +248,6 @@ export default function AdminPage() {
       toast.success("Usuario actualizado");
       setEditUser(null);
       fetchUsers(pagination.page, searchQuery);
-      // Refresh stats too
       fetch("/api/admin/stats")
         .then((r) => r.json())
         .then(setStats)
@@ -183,7 +259,59 @@ export default function AdminPage() {
     }
   };
 
-  // Authorization check
+  // ═════════════════════════════════════════════════════════════════════════
+  // API Keys handlers
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const toggleKeyVisibility = (keyName: string) => {
+    setApiKeyVisible((prev) => ({ ...prev, [keyName]: !prev[keyName] }));
+  };
+
+  const updateApiKeyValue = (keyName: string, value: string) => {
+    setApiKeyValues((prev) => ({ ...prev, [keyName]: value }));
+  };
+
+  const handleSaveApiKeys = async () => {
+    // Build payload with only edited keys
+    const payload: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(apiKeyValues)) {
+      const trimmed = value.trim();
+      if (trimmed) {
+        payload[key] = trimmed;
+      }
+    }
+
+    if (Object.keys(payload).length === 0) {
+      toast.warning("No hay cambios para guardar");
+      return;
+    }
+
+    setSavingKeys(true);
+    try {
+      const res = await fetch("/api/admin/api-keys", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Error al guardar");
+        return;
+      }
+      toast.success(data.message || "API keys actualizadas");
+      setApiKeyValues({});
+      fetchApiKeys();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setSavingKeys(false);
+    }
+  };
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Loading / unauthorized
+  // ═════════════════════════════════════════════════════════════════════════
+
   if (authorized === null) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -203,6 +331,10 @@ export default function AdminPage() {
       </div>
     );
   }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Stat cards
+  // ═════════════════════════════════════════════════════════════════════════
 
   const statCards = [
     {
@@ -235,6 +367,18 @@ export default function AdminPage() {
     },
   ];
 
+  // Group API keys by category
+  const keysByCategory: Record<string, SystemApiKey[]> = {};
+  for (const ak of apiKeys) {
+    const cat = ak.category || "Otro";
+    if (!keysByCategory[cat]) keysByCategory[cat] = [];
+    keysByCategory[cat].push(ak);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Render
+  // ═════════════════════════════════════════════════════════════════════════
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -246,7 +390,7 @@ export default function AdminPage() {
           </h1>
         </div>
         <p className="mt-1 text-zinc-400">
-          Gestiona usuarios y monitorea la plataforma
+          Gestiona usuarios, API keys y monitorea la plataforma
         </p>
       </div>
 
@@ -276,7 +420,152 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* ================================================================= */}
+      {/* API Keys del Sistema */}
+      {/* ================================================================= */}
+
+      <Card className="border-zinc-800 bg-zinc-900/50">
+        <CardHeader>
+          <CardTitle className="text-zinc-100 flex items-center gap-2">
+            <Key className="h-5 w-5 text-emerald-400" />
+            API Keys del Sistema
+          </CardTitle>
+          <CardDescription className="text-zinc-400">
+            Estas claves son compartidas con todos los usuarios. Los usuarios no
+            necesitan configurar sus propias APIs a menos que quieran usar las suyas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingKeys ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(keysByCategory).map(([category, keys]) => (
+                <div key={category}>
+                  {/* Category header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    {CATEGORY_ICONS[category] || (
+                      <Zap className="h-4 w-4 text-zinc-400" />
+                    )}
+                    <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">
+                      {category}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {keys.map((ak) => {
+                      const isVisible = apiKeyVisible[ak.key] ?? false;
+                      const editValue = apiKeyValues[ak.key] ?? "";
+                      const isEditing = editValue.length > 0;
+
+                      return (
+                        <div
+                          key={ak.key}
+                          className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4"
+                        >
+                          {/* Top row: label + status */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-medium text-zinc-200">
+                                {ak.label}
+                              </p>
+                              <p className="text-xs text-zinc-500">
+                                {ak.description}
+                              </p>
+                            </div>
+                            <Badge
+                              className={
+                                ak.hasValue
+                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                  : "bg-red-500/20 text-red-400 border-red-500/30"
+                              }
+                            >
+                              {ak.hasValue ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3" />
+                                  Configurada
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="h-3 w-3" />
+                                  No configurada
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+
+                          {/* Current value (masked) */}
+                          {ak.hasValue && !isEditing && (
+                            <p className="text-xs text-zinc-500 font-mono mb-2">
+                              Actual: {ak.maskedValue}
+                            </p>
+                          )}
+
+                          {/* Input row */}
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Input
+                                type={isVisible ? "text" : "password"}
+                                value={editValue}
+                                onChange={(e) =>
+                                  updateApiKeyValue(ak.key, e.target.value)
+                                }
+                                placeholder={
+                                  ak.hasValue
+                                    ? "Ingresa nuevo valor para reemplazar..."
+                                    : "Ingresa el valor..."
+                                }
+                                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 pr-10 font-mono text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => toggleKeyVisibility(ak.key)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                              >
+                                {isVisible ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Save button */}
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={handleSaveApiKeys}
+                  disabled={
+                    savingKeys ||
+                    Object.values(apiKeyValues).every((v) => !v.trim())
+                  }
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {savingKeys ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Guardar API Keys
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ================================================================= */}
       {/* Users Table */}
+      {/* ================================================================= */}
+
       <Card className="border-zinc-800 bg-zinc-900/50">
         <CardHeader>
           <div className="flex items-center justify-between">

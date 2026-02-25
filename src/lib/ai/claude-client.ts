@@ -1,21 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { resolveApiKey, SYSTEM_KEY_NAMES } from "@/lib/api-keys";
 
 let clientInstance: Anthropic | null = null;
+let cachedKey: string | null = null;
 
 /**
- * Get or create the Anthropic client
- * Uses the API key from env or a user-provided key
+ * Get or create the Anthropic client.
+ * Resolution: user key → system DB key → env var.
  */
-export function getClaudeClient(apiKey?: string): Anthropic {
-  const key = apiKey || process.env.ANTHROPIC_API_KEY;
+export async function getClaudeClient(userApiKey?: string): Promise<Anthropic> {
+  const key = await resolveApiKey(SYSTEM_KEY_NAMES.ANTHROPIC_API_KEY, userApiKey);
   if (!key) throw new Error("Anthropic API key no configurada");
 
-  // If using env key and we have a cached instance, reuse it
-  if (!apiKey && clientInstance) return clientInstance;
+  // Reuse cached instance if same key
+  if (clientInstance && cachedKey === key) return clientInstance;
 
   const client = new Anthropic({ apiKey: key });
-
-  if (!apiKey) clientInstance = client;
+  clientInstance = client;
+  cachedKey = key;
   return client;
 }
 
@@ -33,7 +35,7 @@ export async function generateWithClaude(
 ): Promise<string> {
   const { apiKey, model = "claude-sonnet-4-20250514", maxTokens = 1024 } = options;
 
-  const client = getClaudeClient(apiKey);
+  const client = await getClaudeClient(apiKey);
 
   const message = await client.messages.create({
     model,

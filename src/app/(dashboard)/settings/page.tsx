@@ -44,6 +44,7 @@ interface ProfileData {
   hasSendsparkKey: boolean;
   hasAnthropicKey: boolean;
   hasApifyToken: boolean;
+  systemKeysAvailable?: boolean;
 }
 
 interface WhatsAppStatus {
@@ -433,7 +434,9 @@ export default function SettingsPage() {
             API Keys
           </CardTitle>
           <CardDescription className="text-zinc-400">
-            Configura las credenciales de los servicios externos
+            {profile?.systemKeysAvailable
+              ? "Las APIs del sistema ya están configuradas por el administrador. Puedes usar las tuyas propias si lo prefieres."
+              : "Configura las credenciales de los servicios externos"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
