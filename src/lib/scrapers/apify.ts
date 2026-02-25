@@ -465,26 +465,47 @@ export async function scrapeFacebookApify(
     return mapFacebookResults(items);
 
   } else if (input.query) {
-    const actorInput: Record<string, unknown> = {
-      searchQueries: [input.query],
-      proxyConfiguration: { useApifyProxy: true },
-    };
+    // Phase 1: Search for page URLs using danek/facebook-search-ppr
+    const searchQuery = input.location
+      ? `${input.query} ${input.location}`
+      : input.query;
 
-    if (input.location) {
-      actorInput.location = input.location;
-    }
+    const searchItems = await runActor(
+      "danek/facebook-search-ppr",
+      {
+        query: searchQuery,
+        search_type: "pages",
+        max_posts: 0,
+        max_results: Math.min(limit, 100),
+      },
+      token,
+      45
+    );
 
-    if (limit) {
-      actorInput.maxResults = Math.min(limit, 1000);
-    }
+    // Extract page URLs from search results
+    const pageUrls = searchItems
+      .filter((r) => r.url || r.profile_url)
+      .map((r) => ({ url: (r.url as string) || (r.profile_url as string) }))
+      .slice(0, 20);
 
-    const items = await runActor(
-      "apify/facebook-search-scraper",
-      actorInput,
+    if (pageUrls.length === 0) return [];
+
+    // Phase 2: Enrich with full contact data using pages-scraper
+    const enrichedItems = await runActor(
+      "apify/facebook-pages-scraper",
+      {
+        startUrls: pageUrls,
+        scrapeAbout: true,
+        scrapePosts: false,
+        scrapeReviews: false,
+        scrapeServices: false,
+        proxyConfiguration: { useApifyProxy: true },
+      },
       token,
       55
     );
-    return mapFacebookResults(items);
+
+    return mapFacebookResults(enrichedItems);
   }
 
   return [];
@@ -494,6 +515,7 @@ function mapFacebookResults(
   items: Record<string, unknown>[]
 ): ApifyFacebookResult[] {
   return items.map((item) => {
+    // Handle address — can be string or object
     let address: string | null = null;
     if (typeof item.address === "string") {
       address = item.address || null;
@@ -504,24 +526,40 @@ function mapFacebookResults(
         .join(", ") || null;
     }
 
+    // Handle categories — array of strings
     const categories = Array.isArray(item.categories)
       ? (item.categories as string[])
       : [];
 
+    // Handle website — pages-scraper returns "website" + "websites" array
+    const isMapsUrl = (url: string) => url.includes("maps.google.com") || url.includes("maps.app.goo.gl");
+    let website = (item.website as string) || null;
+    if (website && isMapsUrl(website)) website = null; // Skip maps URLs
+    if (!website && Array.isArray(item.websites)) {
+      const websites = item.websites as string[];
+      website = websites.find((w) => !isMapsUrl(w)) || null;
+    }
+
+    // Handle about/description — pages-scraper uses "intro"
+    const about = (item.about as string)
+      || (item.description as string)
+      || (item.intro as string)
+      || null;
+
     return {
-      title: (item.title as string) || (item.name as string) || "",
-      pageUrl: (item.pageUrl as string) || (item.url as string) || "",
+      title: (item.title as string) || (item.name as string) || (item.pageName as string) || "",
+      pageUrl: (item.pageUrl as string) || (item.facebookUrl as string) || (item.url as string) || "",
       categories,
       email: (item.email as string) || null,
       phone: (item.phone as string) || null,
-      website: (item.website as string) || null,
+      website,
       address,
-      likes: (item.likes as number) || null,
-      followers: (item.followers as number) || null,
-      rating: (item.rating as number) || null,
-      checkins: (item.checkins as number) || null,
-      about: (item.about as string) || (item.description as string) || null,
-      verified: (item.verified as boolean) || false,
+      likes: typeof item.likes === "number" ? item.likes : null,
+      followers: typeof item.followers === "number" ? item.followers : null,
+      rating: typeof item.rating === "number" ? item.rating : (typeof item.rating === "string" ? parseFloat(item.rating) || null : null),
+      checkins: typeof item.checkins === "number" ? item.checkins : null,
+      about,
+      verified: (item.verified as boolean) || (item.is_verified as boolean) || false,
       messenger: (item.messenger as string) || null,
     };
   });
@@ -855,6 +893,7 @@ export function getActorConfig(
 
     case "facebook": {
       if (pageUrls && pageUrls.length > 0) {
+        // Direct page URLs → scrape full contact info
         return {
           actorId: "apify/facebook-pages-scraper",
           input: {
@@ -867,13 +906,18 @@ export function getActorConfig(
           },
         };
       }
-      const input: Record<string, unknown> = {
-        searchQueries: [query],
-        proxyConfiguration: { useApifyProxy: true },
+      // Keyword search → Phase 1: find page URLs
+      // Uses danek/facebook-search-ppr (1.9M runs, most popular FB search actor)
+      // Phase 2 (enrich with contacts) is handled by /api/scrape/status
+      return {
+        actorId: "danek/facebook-search-ppr",
+        input: {
+          query: location ? `${query} ${location}` : query,
+          search_type: "pages",
+          max_posts: 0,
+          max_results: Math.min(maxResults, 100),
+        },
       };
-      if (location) input.location = location;
-      if (maxResults) input.maxResults = Math.min(maxResults, 1000);
-      return { actorId: "apify/facebook-search-scraper", input };
     }
 
     default:

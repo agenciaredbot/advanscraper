@@ -69,9 +69,10 @@ export async function GET(request: NextRequest) {
 
     // ── Check which phase we're in ──
     const currentPhase = search.apifyPhase || "scraping";
-    const runIdToCheck = currentPhase === "enriching" && search.enrichRunId
-      ? search.enrichRunId
-      : search.apifyRunId;
+    const runIdToCheck =
+      (currentPhase === "enriching" || currentPhase === "enriching_pages") && search.enrichRunId
+        ? search.enrichRunId
+        : search.apifyRunId;
 
     const runInfo = await checkActorRun(runIdToCheck, apiToken);
 
@@ -90,7 +91,9 @@ export async function GET(request: NextRequest) {
         },
         message: currentPhase === "scraping"
           ? `Scrapeando ${search.source}... ${runInfo.stats.itemCount} items encontrados (${elapsed}s)`
-          : `Enriqueciendo emails... (${elapsed}s)`,
+          : currentPhase === "enriching_pages"
+            ? `Extrayendo datos de contacto de páginas Facebook... (${elapsed}s)`
+            : `Enriqueciendo emails... (${elapsed}s)`,
       });
     }
 
@@ -123,6 +126,66 @@ export async function GET(request: NextRequest) {
       }
 
       const rawItems = await fetchActorResults(runInfo.datasetId, apiToken);
+
+      // ── FACEBOOK 2-PHASE: search → enrich pages ──
+      // If this is Facebook keyword search (danek/facebook-search-ppr),
+      // the results are just URLs. We need a second actor to get contact info.
+      if (
+        search.source === "facebook" &&
+        search.apifyActorId === "danek/facebook-search-ppr" &&
+        rawItems.length > 0
+      ) {
+        // Extract page URLs from search results
+        const pageUrls = rawItems
+          .filter((r) => r.url || r.profile_url)
+          .map((r) => ({ url: (r.url as string) || (r.profile_url as string) }))
+          .slice(0, 25); // Max 25 pages to enrich
+
+        if (pageUrls.length === 0) {
+          await prisma.search.update({
+            where: { id: search.id },
+            data: { status: "failed", errorMessage: "No se encontraron páginas de Facebook" },
+          });
+          return NextResponse.json({ status: "failed", error: "No se encontraron páginas de Facebook" });
+        }
+
+        // Start phase 2: scrape full page details
+        try {
+          const pagesRunInfo = await startActorAsync(
+            "apify/facebook-pages-scraper",
+            {
+              startUrls: pageUrls,
+              scrapeAbout: true,
+              scrapePosts: false,
+              scrapeReviews: false,
+              scrapeServices: false,
+              proxyConfiguration: { useApifyProxy: true },
+            },
+            apiToken
+          );
+
+          await prisma.search.update({
+            where: { id: search.id },
+            data: {
+              apifyPhase: "enriching_pages",
+              enrichRunId: pagesRunInfo.runId,
+              totalResults: pageUrls.length, // Temporary count until phase 2 completes
+            },
+          });
+
+          return NextResponse.json({
+            status: "running",
+            phase: "enriching_pages",
+            count: pageUrls.length,
+            message: `${pageUrls.length} páginas encontradas. Extrayendo datos de contacto...`,
+          });
+        } catch (pagesErr) {
+          console.warn("[scrape/status] Facebook pages enrichment failed:", pagesErr);
+          // Fall through — save basic results without contact details
+        }
+      }
+
+      // ── Standard flow: normalize + save ──
       const normalized = normalizeBySource(search.source, rawItems);
       const validLeads = normalized.filter((l) => l.profileUrl);
 
@@ -199,6 +262,51 @@ export async function GET(request: NextRequest) {
         phase: "done",
         count: savedCount,
         message: `¡${savedCount} leads encontrados!`,
+      });
+    }
+
+    // Phase 1.5: Facebook pages enrichment completed → normalize + save
+    if (currentPhase === "enriching_pages") {
+      if (!runInfo.datasetId) {
+        await prisma.search.update({
+          where: { id: search.id },
+          data: { status: "failed", errorMessage: "No dataset from pages scraper" },
+        });
+        return NextResponse.json({ status: "failed", error: "No se obtuvieron datos de contacto" });
+      }
+
+      const rawItems = await fetchActorResults(runInfo.datasetId, apiToken);
+      const normalized = normalizeBySource("facebook", rawItems);
+      const validLeads = normalized.filter((l) => l.profileUrl);
+
+      const result = await prisma.lead.createMany({
+        data: validLeads.map((lead) => ({
+          userId: user.id,
+          searchId: search.id,
+          ...lead,
+          source: "facebook",
+        })),
+        skipDuplicates: true,
+      });
+
+      const savedCount = result.count;
+
+      await prisma.search.update({
+        where: { id: search.id },
+        data: {
+          status: "completed",
+          totalResults: savedCount,
+          completedAt: new Date(),
+          apifyPhase: "done",
+        },
+      });
+
+      const emailCount = validLeads.filter((l) => l.email).length;
+      return NextResponse.json({
+        status: "completed",
+        phase: "done",
+        count: savedCount,
+        message: `¡${savedCount} leads de Facebook encontrados! (${emailCount} con email)`,
       });
     }
 

@@ -27,6 +27,7 @@ interface ProgressTrackerProps {
 
 const PHASE_LABELS: Record<string, string> = {
   scraping: "Scrapeando datos",
+  enriching_pages: "Extrayendo datos de contacto",
   enriching: "Enriqueciendo emails",
   done: "Completado",
 };
