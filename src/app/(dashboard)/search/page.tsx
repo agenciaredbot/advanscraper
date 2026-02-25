@@ -5,6 +5,7 @@ import { SourceSelector, type SearchSource } from "@/components/search/SourceSel
 import { GoogleMapsForm } from "@/components/search/GoogleMapsForm";
 import { LinkedInForm } from "@/components/search/LinkedInForm";
 import { InstagramForm } from "@/components/search/InstagramForm";
+import { FacebookForm } from "@/components/search/FacebookForm";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -95,6 +96,23 @@ export default function SearchPage() {
               usernames: data.username
                 ? [data.username]
                 : undefined,
+              maxResults: data.maxResults,
+            })
+          }
+          isLoading={isLoading}
+        />
+      )}
+
+      {source === "facebook" && (
+        <FacebookForm
+          onSubmit={(data) =>
+            startJob("/api/scrape/apify", {
+              source: "facebook",
+              query: data.query || data.pageUrl,
+              pageUrls: data.pageUrl
+                ? [data.pageUrl]
+                : undefined,
+              location: data.location || undefined,
               maxResults: data.maxResults,
             })
           }

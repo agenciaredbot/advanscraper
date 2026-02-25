@@ -8,6 +8,8 @@
  * - LinkedIn:     harvestapi/linkedin-profile-search (NO cookies, built-in email search)
  * - Instagram:    apify/instagram-profile-scraper    (specific usernames)
  *                 apify/instagram-scraper            (keyword search)
+ * - Facebook:     apify/facebook-search-scraper      (keyword + location search)
+ *                 apify/facebook-pages-scraper       (specific page URLs)
  *
  * ENRICHMENT:
  * - LinkedIn→Email:  anchor/linkedin-to-email       (backup: $9/1K lookups)
@@ -407,6 +409,160 @@ export function normalizeInstagramApify(
       isBusiness: r.isBusinessAccount,
       bio: r.biography,
       profileUrl: `https://instagram.com/${r.username}`,
+    };
+  });
+}
+
+// ====================================
+// Facebook via Apify
+// Two actors depending on input:
+//   Search    → apify/facebook-search-scraper   (keyword + location, uses Google underneath)
+//   Page URLs → apify/facebook-pages-scraper    (specific page URLs, full contact info)
+// Docs:
+//   https://apify.com/apify/facebook-search-scraper
+//   https://apify.com/apify/facebook-pages-scraper
+//
+// IMPORTANT: Both actors return email, phone, website from public page info.
+// No login or cookies required. Search max: 1,000 results per keyword-location.
+// ====================================
+
+interface ApifyFacebookResult {
+  title: string;
+  pageUrl: string;
+  categories: string[];
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  address: string | null;
+  likes: number | null;
+  followers: number | null;
+  rating: number | null;
+  checkins: number | null;
+  about: string | null;
+  verified: boolean;
+  messenger: string | null;
+}
+
+export async function scrapeFacebookApify(
+  input: { query?: string; pageUrls?: string[]; location?: string },
+  limit: number = 50,
+  apiToken?: string
+): Promise<ApifyFacebookResult[]> {
+  const client = await getApifyClient(apiToken);
+
+  if (input.pageUrls && input.pageUrls.length > 0) {
+    // ── Specific page URLs → apify/facebook-pages-scraper ──
+    const run = await client
+      .actor("apify/facebook-pages-scraper")
+      .call(
+        {
+          startUrls: input.pageUrls.map((url) => ({ url })),
+          scrapeAbout: true,
+          scrapePosts: false,    // Only need contact info
+          scrapeReviews: false,  // Skip to save compute
+          scrapeServices: false, // Skip to save compute
+          proxyConfiguration: { useApifyProxy: true },
+        },
+        { waitSecs: 55 }
+      );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    return mapFacebookResults(items);
+
+  } else if (input.query) {
+    // ── Keyword search → apify/facebook-search-scraper ──
+    const actorInput: Record<string, unknown> = {
+      searchQueries: [input.query],
+      proxyConfiguration: { useApifyProxy: true },
+    };
+
+    if (input.location) {
+      actorInput.location = input.location;
+    }
+
+    if (limit) {
+      actorInput.maxResults = Math.min(limit, 1000); // Actor max: 1,000
+    }
+
+    const run = await client
+      .actor("apify/facebook-search-scraper")
+      .call(actorInput, { waitSecs: 55 });
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    return mapFacebookResults(items);
+  }
+
+  return [];
+}
+
+/** Map raw Apify Facebook items to our interface (works for both actors) */
+function mapFacebookResults(
+  items: Record<string, unknown>[]
+): ApifyFacebookResult[] {
+  return items.map((item) => {
+    // Handle address — can be string or object depending on actor
+    let address: string | null = null;
+    if (typeof item.address === "string") {
+      address = item.address || null;
+    } else if (item.address && typeof item.address === "object") {
+      const addr = item.address as Record<string, unknown>;
+      address = [addr.street, addr.city, addr.state, addr.zip]
+        .filter(Boolean)
+        .join(", ") || null;
+    }
+
+    // Categories: array in both actors
+    const categories = Array.isArray(item.categories)
+      ? (item.categories as string[])
+      : [];
+
+    return {
+      title: (item.title as string) || (item.name as string) || "",
+      pageUrl: (item.pageUrl as string) || (item.url as string) || "",
+      categories,
+      email: (item.email as string) || null,
+      phone: (item.phone as string) || null,
+      website: (item.website as string) || null,
+      address,
+      likes: (item.likes as number) || null,
+      followers: (item.followers as number) || null,
+      rating: (item.rating as number) || null,
+      checkins: (item.checkins as number) || null,
+      about: (item.about as string) || (item.description as string) || null,
+      verified: (item.verified as boolean) || false,
+      messenger: (item.messenger as string) || null,
+    };
+  });
+}
+
+export function normalizeFacebookApify(
+  results: ApifyFacebookResult[]
+): NormalizedLead[] {
+  return results.map((r) => {
+    // Try to extract email from about/bio if not available directly
+    let email = r.email;
+    if (!email && r.about) {
+      const bioEmail = extractEmailFromText(r.about);
+      if (bioEmail) email = bioEmail;
+    }
+
+    return {
+      source: "facebook",
+      businessName: r.title,
+      contactPerson: null,
+      contactTitle: null,
+      email,
+      phone: r.phone,
+      website: r.website,
+      address: r.address,
+      city: null, // Not directly available — extracted from address if needed
+      category: r.categories[0] || null,
+      rating: r.rating,
+      reviewsCount: r.checkins, // Use checkins as a proxy for engagement
+      followers: r.followers,
+      isBusiness: true,
+      bio: r.about,
+      profileUrl: r.pageUrl,
     };
   });
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { MapPin, Linkedin, Instagram } from "lucide-react";
+import { MapPin, Linkedin, Instagram, Facebook } from "lucide-react";
 
-export type SearchSource = "google_maps" | "linkedin" | "instagram";
+export type SearchSource = "google_maps" | "linkedin" | "instagram" | "facebook";
 
 interface SourceSelectorProps {
   selected: SearchSource;
@@ -38,11 +38,20 @@ const sources = [
     borderColor: "border-pink-500/30",
     bgColor: "bg-pink-500/10",
   },
+  {
+    id: "facebook" as const,
+    label: "Facebook",
+    description: "Páginas de negocios",
+    icon: Facebook,
+    color: "text-blue-500",
+    borderColor: "border-blue-500/30",
+    bgColor: "bg-blue-500/10",
+  },
 ];
 
 export function SourceSelector({ selected, onChange }: SourceSelectorProps) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {sources.map((source) => {
         const isSelected = selected === source.id;
         return (

@@ -61,6 +61,7 @@ const sourceLabels: Record<string, { label: string; color: string }> = {
   google_maps: { label: "Google Maps", color: "bg-emerald-500/20 text-emerald-400" },
   linkedin: { label: "LinkedIn", color: "bg-blue-500/20 text-blue-400" },
   instagram: { label: "Instagram", color: "bg-pink-500/20 text-pink-400" },
+  facebook: { label: "Facebook", color: "bg-blue-600/20 text-blue-400" },
   apify: { label: "Apify (legacy)", color: "bg-amber-500/20 text-amber-400" },
   manual: { label: "Manual", color: "bg-violet-500/20 text-violet-400" },
   csv_import: { label: "Importado", color: "bg-cyan-500/20 text-cyan-400" },

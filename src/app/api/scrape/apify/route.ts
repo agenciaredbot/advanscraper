@@ -6,9 +6,11 @@ import {
   scrapeGoogleMapsApify,
   scrapeLinkedInApify,
   scrapeInstagramApify,
+  scrapeFacebookApify,
   normalizeGoogleMapsApify,
   normalizeLinkedInApify,
   normalizeInstagramApify,
+  normalizeFacebookApify,
   enrichLeadsWithEmails,
   type NormalizedLead,
 } from "@/lib/scrapers/apify";
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { source, query, location, maxResults = 50, usernames } = body;
+    const { source, query, location, maxResults = 50, usernames, pageUrls } = body;
 
     if (!source || !query) {
       return NextResponse.json(
@@ -80,6 +82,16 @@ export async function POST(request: NextRequest) {
             apiToken
           );
           normalized = normalizeInstagramApify(results);
+          break;
+        }
+        case "facebook": {
+          const results = await scrapeFacebookApify(
+            { query, pageUrls, location },
+            maxResults,
+            apiToken
+          );
+          normalized = normalizeFacebookApify(results);
+          console.log(`[apify] Facebook: ${results.length} pages scraped, ${results.filter(r => r.email).length} with emails, ${results.filter(r => r.phone).length} with phones`);
           break;
         }
         default:
