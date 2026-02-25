@@ -2,6 +2,140 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 
+// ─── Types for lead creation ─────────────────────────────────────────────────
+
+interface LeadInput {
+  businessName?: string;
+  contactPerson?: string;
+  contactTitle?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  category?: string;
+  source?: string;
+}
+
+function cleanStr(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function sanitizeLead(raw: LeadInput) {
+  return {
+    businessName: cleanStr(raw.businessName),
+    contactPerson: cleanStr(raw.contactPerson),
+    contactTitle: cleanStr(raw.contactTitle),
+    email: cleanStr(raw.email),
+    phone: cleanStr(raw.phone),
+    website: cleanStr(raw.website),
+    address: cleanStr(raw.address),
+    city: cleanStr(raw.city),
+    country: cleanStr(raw.country),
+    category: cleanStr(raw.category),
+  };
+}
+
+// ─── POST — Create lead(s) (individual or bulk) ─────────────────────────────
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { lead, leads } = body as { lead?: LeadInput; leads?: LeadInput[] };
+
+    // ── Single lead creation ──
+    if (lead) {
+      const data = sanitizeLead(lead);
+      if (!data.businessName && !data.contactPerson) {
+        return NextResponse.json(
+          { error: "Se requiere al menos un nombre de negocio o persona de contacto" },
+          { status: 400 }
+        );
+      }
+
+      const source = cleanStr(lead.source) || "manual";
+      const created = await prisma.lead.create({
+        data: {
+          userId: user.id,
+          source,
+          ...data,
+        },
+      });
+
+      return NextResponse.json({ success: true, created: 1, lead: created });
+    }
+
+    // ── Bulk creation (CSV/Excel import) ──
+    if (leads && Array.isArray(leads)) {
+      if (leads.length === 0) {
+        return NextResponse.json({ error: "No hay leads para importar" }, { status: 400 });
+      }
+      if (leads.length > 500) {
+        return NextResponse.json(
+          { error: "Máximo 500 leads por importación" },
+          { status: 400 }
+        );
+      }
+
+      const source = cleanStr(leads[0]?.source) || "csv_import";
+      let created = 0;
+      let skipped = 0;
+
+      // Use individual creates with try/catch to handle duplicates gracefully
+      for (const rawLead of leads) {
+        const data = sanitizeLead(rawLead);
+        if (!data.businessName && !data.contactPerson && !data.email && !data.phone) {
+          skipped++;
+          continue;
+        }
+        try {
+          await prisma.lead.create({
+            data: {
+              userId: user.id,
+              source,
+              ...data,
+            },
+          });
+          created++;
+        } catch {
+          skipped++; // Duplicate or validation error
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        created,
+        skipped,
+        total: leads.length,
+        message: `${created} leads importados${skipped > 0 ? `, ${skipped} omitidos` : ""}`,
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Se requiere 'lead' o 'leads' en el body" },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("Leads POST error:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
+
 // GET — List leads with pagination and filters
 export async function GET(request: NextRequest) {
   try {

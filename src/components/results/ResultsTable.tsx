@@ -62,6 +62,8 @@ const sourceLabels: Record<string, { label: string; color: string }> = {
   linkedin: { label: "LinkedIn", color: "bg-blue-500/20 text-blue-400" },
   instagram: { label: "Instagram", color: "bg-pink-500/20 text-pink-400" },
   apify: { label: "Apify", color: "bg-amber-500/20 text-amber-400" },
+  manual: { label: "Manual", color: "bg-violet-500/20 text-violet-400" },
+  csv_import: { label: "Importado", color: "bg-cyan-500/20 text-cyan-400" },
 };
 
 export function ResultsTable({

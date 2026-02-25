@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { ResultsTable } from "@/components/results/ResultsTable";
 import { AddToListModal } from "@/components/lead-lists/AddToListModal";
+import { CreateLeadModal } from "@/components/results/CreateLeadModal";
+import { ImportLeadsModal } from "@/components/results/ImportLeadsModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Download, Loader2, ListFilter, Trash2 } from "lucide-react";
+import { Search, Download, Loader2, ListFilter, Trash2, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 interface Lead {
@@ -55,6 +57,8 @@ export default function ResultsPage() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [hasEmailFilter, setHasEmailFilter] = useState("all");
   const [showAddToList, setShowAddToList] = useState(false);
+  const [showCreateLead, setShowCreateLead] = useState(false);
+  const [showImportLeads, setShowImportLeads] = useState(false);
 
   const fetchLeads = useCallback(async (page = 1) => {
     setLoading(true);
@@ -168,6 +172,23 @@ export default function ResultsPage() {
             </>
           )}
           <Button
+            size="sm"
+            onClick={() => setShowCreateLead(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar Lead
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImportLeads(true)}
+            className="border-zinc-700 text-zinc-400"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Importar
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
@@ -201,6 +222,8 @@ export default function ResultsPage() {
             <SelectItem value="linkedin">LinkedIn</SelectItem>
             <SelectItem value="instagram">Instagram</SelectItem>
             <SelectItem value="apify">Apify</SelectItem>
+            <SelectItem value="manual">Manual</SelectItem>
+            <SelectItem value="csv_import">Importado</SelectItem>
           </SelectContent>
         </Select>
         <Select value={hasEmailFilter} onValueChange={(v) => { setHasEmailFilter(v); }}>
@@ -238,11 +261,21 @@ export default function ResultsPage() {
         />
       )}
 
-      {/* Add to List Modal */}
+      {/* Modals */}
       <AddToListModal
         open={showAddToList}
         onOpenChange={setShowAddToList}
         leadIds={Array.from(selectedIds)}
+      />
+      <CreateLeadModal
+        open={showCreateLead}
+        onOpenChange={setShowCreateLead}
+        onCreated={() => fetchLeads(1)}
+      />
+      <ImportLeadsModal
+        open={showImportLeads}
+        onOpenChange={setShowImportLeads}
+        onImported={() => fetchLeads(1)}
       />
     </div>
   );
