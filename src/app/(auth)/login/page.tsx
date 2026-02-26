@@ -44,8 +44,8 @@ export default function LoginPage() {
           <Image
             src="/Logo_AdvanceScraper.png"
             alt="AdvanScraper"
-            width={200}
-            height={85}
+            width={320}
+            height={137}
             className="mx-auto"
             priority
           />
