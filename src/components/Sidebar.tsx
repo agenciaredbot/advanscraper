@@ -65,13 +65,13 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950">
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-zinc-800 px-4">
+      <div className="flex h-20 items-center justify-center border-b border-zinc-800 px-3">
         <Image
           src="/Logo_AdvanceScraper.png"
           alt="AdvanScraper"
-          width={240}
-          height={103}
-          className="h-11 w-auto"
+          width={480}
+          height={205}
+          className="w-full max-w-[220px] h-auto"
           priority
         />
       </div>
