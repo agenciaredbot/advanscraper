@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -16,7 +15,6 @@ import {
   Mail,
   Phone,
   Globe,
-  Star,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
@@ -35,11 +33,17 @@ interface Lead {
   rating: number | null;
   reviewsCount: number | null;
   profileUrl: string | null;
-  isSaved?: boolean;
+  bio: string | null;
+  address: string | null;
+  contactTitle: string | null;
+  country: string | null;
+  followers: number | null;
+  isSaved: boolean;
+  savedAt: string | null;
   scrapedAt: string;
-  listItems?: Array<{
-    list: { id: string; name: string; color: string | null };
-  }>;
+  tags?: Array<{ tag: { id: string; name: string; color: string } }>;
+  notes?: Array<{ id: string; content: string; createdAt: string }>;
+  listItems?: Array<{ list: { id: string; name: string; color: string | null } }>;
 }
 
 interface Pagination {
@@ -49,13 +53,13 @@ interface Pagination {
   totalPages: number;
 }
 
-interface ResultsTableProps {
+interface LeadsTableProps {
   leads: Lead[];
   pagination: Pagination;
   selectedIds: Set<string>;
   onSelectChange: (ids: Set<string>) => void;
   onPageChange: (page: number) => void;
-  onLeadClick?: (lead: Lead) => void;
+  onLeadClick: (lead: Lead) => void;
 }
 
 const sourceLabels: Record<string, { label: string; color: string }> = {
@@ -63,19 +67,32 @@ const sourceLabels: Record<string, { label: string; color: string }> = {
   linkedin: { label: "LinkedIn", color: "bg-blue-500/20 text-blue-400" },
   instagram: { label: "Instagram", color: "bg-pink-500/20 text-pink-400" },
   facebook: { label: "Facebook", color: "bg-indigo-500/20 text-indigo-400" },
-  apify: { label: "Apify (legacy)", color: "bg-amber-500/20 text-amber-400" },
-  manual: { label: "Manual", color: "bg-violet-500/20 text-violet-400" },
-  csv_import: { label: "Importado", color: "bg-cyan-500/20 text-cyan-400" },
+  manual: { label: "Manual", color: "bg-zinc-500/20 text-zinc-400" },
+  csv_import: { label: "Importado", color: "bg-amber-500/20 text-amber-400" },
 };
 
-export function ResultsTable({
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "--";
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "--";
+  }
+}
+
+export function LeadsTable({
   leads,
   pagination,
   selectedIds,
   onSelectChange,
   onPageChange,
   onLeadClick,
-}: ResultsTableProps) {
+}: LeadsTableProps) {
   const allSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
 
   const toggleAll = () => {
@@ -99,9 +116,9 @@ export function ResultsTable({
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 p-16">
-        <p className="text-zinc-500 text-lg font-medium">No hay leads aún</p>
+        <p className="text-zinc-500 text-lg font-medium">No hay leads guardados</p>
         <p className="text-zinc-600 text-sm mt-1">
-          Realiza una búsqueda para ver resultados aquí
+          Guarda leads desde la pagina de Resultados para verlos aqui
         </p>
       </div>
     );
@@ -121,11 +138,11 @@ export function ResultsTable({
               </TableHead>
               <TableHead className="text-zinc-400">Negocio</TableHead>
               <TableHead className="text-zinc-400">Fuente</TableHead>
-              <TableHead className="text-zinc-400">Teléfono</TableHead>
+              <TableHead className="text-zinc-400">Telefono</TableHead>
               <TableHead className="text-zinc-400">Email</TableHead>
               <TableHead className="text-zinc-400">Website</TableHead>
               <TableHead className="text-zinc-400">Ciudad</TableHead>
-              <TableHead className="text-zinc-400">Rating</TableHead>
+              <TableHead className="text-zinc-400">Guardado</TableHead>
               <TableHead className="text-zinc-400">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -139,8 +156,8 @@ export function ResultsTable({
               return (
                 <TableRow
                   key={lead.id}
-                  className="border-zinc-800 hover:bg-zinc-900/50 cursor-pointer"
-                  onClick={() => onLeadClick?.(lead)}
+                  className="border-zinc-800 cursor-pointer hover:bg-zinc-800/50"
+                  onClick={() => onLeadClick(lead)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
@@ -148,39 +165,38 @@ export function ResultsTable({
                       onCheckedChange={() => toggleOne(lead.id)}
                     />
                   </TableCell>
+                  {/* Negocio + category + tag badges */}
                   <TableCell>
                     <div>
-                      <p className="font-medium text-zinc-200 flex items-center gap-1.5">
-                        {lead.isSaved && (
-                          <Star className="h-3 w-3 text-amber-400 fill-amber-400 shrink-0" />
-                        )}
+                      <p className="font-medium text-zinc-200">
                         {lead.businessName || lead.contactPerson || "Sin nombre"}
                       </p>
                       {lead.category && (
                         <p className="text-xs text-zinc-500">{lead.category}</p>
                       )}
-                      {lead.listItems && lead.listItems.length > 0 && (
-                        <div className="flex gap-1 mt-1">
-                          {lead.listItems.map((item) => (
+                      {lead.tags && lead.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {lead.tags.map((t) => (
                             <span
-                              key={item.list.id}
+                              key={t.tag.id}
                               className="text-[10px] px-1.5 py-0.5 rounded"
                               style={{
-                                backgroundColor: `${item.list.color || "#3B82F6"}20`,
-                                color: item.list.color || "#3B82F6",
+                                backgroundColor: `${t.tag.color}33`,
+                                color: t.tag.color,
                               }}
                             >
-                              {item.list.name}
+                              {t.tag.name}
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
                   </TableCell>
+                  {/* Fuente */}
                   <TableCell>
                     <Badge className={srcConfig.color}>{srcConfig.label}</Badge>
                   </TableCell>
-                  {/* Teléfono */}
+                  {/* Telefono */}
                   <TableCell>
                     {lead.phone ? (
                       <span className="flex items-center gap-1 text-xs text-zinc-400">
@@ -188,7 +204,7 @@ export function ResultsTable({
                         {lead.phone}
                       </span>
                     ) : (
-                      <span className="text-xs text-zinc-600">—</span>
+                      <span className="text-xs text-zinc-600">&mdash;</span>
                     )}
                   </TableCell>
                   {/* Email */}
@@ -199,7 +215,7 @@ export function ResultsTable({
                         <span className="truncate max-w-[180px]">{lead.email}</span>
                       </span>
                     ) : (
-                      <span className="text-xs text-zinc-600">—</span>
+                      <span className="text-xs text-zinc-600">&mdash;</span>
                     )}
                   </TableCell>
                   {/* Website */}
@@ -218,44 +234,29 @@ export function ResultsTable({
                         </span>
                       </a>
                     ) : (
-                      <span className="text-xs text-zinc-600">—</span>
+                      <span className="text-xs text-zinc-600">&mdash;</span>
                     )}
                   </TableCell>
+                  {/* Ciudad */}
                   <TableCell className="text-zinc-400 text-sm">
-                    {lead.city || "—"}
+                    {lead.city || "\u2014"}
                   </TableCell>
-                  <TableCell>
-                    {lead.rating ? (
-                      <span className="flex items-center gap-1 text-sm text-zinc-300">
-                        <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-                        {lead.rating}
-                        {lead.reviewsCount && (
-                          <span className="text-zinc-500">
-                            ({lead.reviewsCount})
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-zinc-600">—</span>
-                    )}
+                  {/* Guardado (savedAt) */}
+                  <TableCell className="text-zinc-500 text-xs whitespace-nowrap">
+                    {formatDate(lead.savedAt)}
                   </TableCell>
+                  {/* Acciones */}
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {lead.profileUrl && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        asChild
-                        className="text-zinc-400 hover:text-emerald-400"
-                      >
-                        <a
-                          href={lead.profileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="text-zinc-400 hover:text-emerald-400"
+                    >
+                      <a href={`/leads/${lead.id}`}>
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -282,7 +283,7 @@ export function ResultsTable({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-zinc-400">
-            Página {pagination.page} de {pagination.totalPages}
+            Pagina {pagination.page} de {pagination.totalPages}
           </span>
           <Button
             variant="outline"

@@ -30,6 +30,8 @@ model Profile {
   loomVideos     LoomVideo[]
   leadLists      LeadList[]
   campaigns      Campaign[]
+  leadTags       LeadTag[]
+  leadNotes      LeadNote[]
 }
 
 model Search {
@@ -83,10 +85,14 @@ model Lead {
   profileUrl      String?
   rawData         String?
   scrapedAt       DateTime  @default(now())
+  isSaved         Boolean   @default(false)
+  savedAt         DateTime?
 
   outreachLogs    OutreachLog[]
   listItems       LeadListItem[]
   campaignLeads   CampaignLead[]
+  tags            LeadTagAssignment[]
+  notes           LeadNote[]
 
   @@unique([userId, source, profileUrl])
   @@index([userId])
@@ -94,6 +100,7 @@ model Lead {
   @@index([source])
   @@index([email])
   @@index([city])
+  @@index([userId, isSaved])
 }
 
 model LeadList {
@@ -244,6 +251,50 @@ model Export {
   totalLeads Int
   createdAt  DateTime @default(now())
 
+  @@index([userId])
+}
+
+// Tags para clasificar leads (etiquetas libres del usuario)
+model LeadTag {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  user        Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  color       String   @default("#10B981")
+  createdAt   DateTime @default(now())
+
+  assignments LeadTagAssignment[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Join table: Lead <-> Tag (many-to-many)
+model LeadTagAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  leadId     String   @db.Uuid
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tagId      String   @db.Uuid
+  tag        LeadTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([leadId, tagId])
+  @@index([leadId])
+  @@index([tagId])
+}
+
+// Notas de texto en cada lead
+model LeadNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  leadId    String   @db.Uuid
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+  user      Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
   @@index([userId])
 }
 

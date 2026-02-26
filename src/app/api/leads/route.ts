@@ -157,6 +157,8 @@ export async function GET(request: NextRequest) {
     const hasPhone = searchParams.get("hasPhone");
     const searchId = searchParams.get("searchId");
     const search = searchParams.get("search");
+    const isSaved = searchParams.get("isSaved");
+    const tagId = searchParams.get("tagId");
 
     // Build where clause
     const where: Record<string, unknown> = { userId: user.id };
@@ -165,6 +167,9 @@ export async function GET(request: NextRequest) {
     if (hasEmail === "true") where.email = { not: null };
     if (hasPhone === "true") where.phone = { not: null };
     if (searchId) where.searchId = searchId;
+    if (isSaved === "true") where.isSaved = true;
+    if (isSaved === "false") where.isSaved = false;
+    if (tagId) where.tags = { some: { tagId } };
     if (search) {
       where.OR = [
         { businessName: { contains: search, mode: "insensitive" } },
@@ -185,6 +190,11 @@ export async function GET(request: NextRequest) {
           listItems: {
             include: {
               list: { select: { id: true, name: true, color: true } },
+            },
+          },
+          tags: {
+            include: {
+              tag: { select: { id: true, name: true, color: true } },
             },
           },
         },

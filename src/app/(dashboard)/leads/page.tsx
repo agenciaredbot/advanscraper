@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ResultsTable } from "@/components/results/ResultsTable";
-import { AddToListModal } from "@/components/lead-lists/AddToListModal";
-import { CreateLeadModal } from "@/components/results/CreateLeadModal";
-import { ImportLeadsModal } from "@/components/results/ImportLeadsModal";
+import { LeadsTable } from "@/components/leads/LeadsTable";
 import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Download, Loader2, ListFilter, Trash2, Plus, Upload, Star } from "lucide-react";
+import { Search, Loader2, Star, StarOff, Tag } from "lucide-react";
 import { toast } from "sonner";
 
 interface Lead {
@@ -31,11 +28,24 @@ interface Lead {
   rating: number | null;
   reviewsCount: number | null;
   profileUrl: string | null;
-  isSaved?: boolean;
+  bio: string | null;
+  address: string | null;
+  contactTitle: string | null;
+  country: string | null;
+  followers: number | null;
+  isSaved: boolean;
+  savedAt: string | null;
   scrapedAt: string;
-  listItems?: Array<{
-    list: { id: string; name: string; color: string | null };
-  }>;
+  tags?: Array<{ tag: { id: string; name: string; color: string } }>;
+  notes?: Array<{ id: string; content: string; createdAt: string }>;
+  listItems?: Array<{ list: { id: string; name: string; color: string | null } }>;
+}
+
+interface TagItem {
+  id: string;
+  name: string;
+  color: string;
+  _count: { assignments: number };
 }
 
 interface Pagination {
@@ -45,7 +55,7 @@ interface Pagination {
   totalPages: number;
 }
 
-export default function ResultsPage() {
+export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -58,11 +68,22 @@ export default function ResultsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [hasEmailFilter, setHasEmailFilter] = useState("all");
-  const [showAddToList, setShowAddToList] = useState(false);
-  const [showCreateLead, setShowCreateLead] = useState(false);
-  const [showImportLeads, setShowImportLeads] = useState(false);
+  const [tagFilter, setTagFilter] = useState("all");
+  const [tags, setTags] = useState<TagItem[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Fetch tags for the filter dropdown
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tags");
+      if (!res.ok) return;
+      const data = await res.json();
+      setTags(data);
+    } catch {
+      // Silently fail — tags filter is optional
+    }
+  }, []);
 
   const fetchLeads = useCallback(async (page = 1) => {
     setLoading(true);
@@ -70,12 +91,14 @@ export default function ResultsPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: "20",
+        isSaved: "true",
       });
 
       if (searchQuery) params.set("search", searchQuery);
       if (sourceFilter !== "all") params.set("source", sourceFilter);
       if (hasEmailFilter === "yes") params.set("hasEmail", "true");
       if (hasEmailFilter === "phone") params.set("hasPhone", "true");
+      if (tagFilter !== "all") params.set("tagId", tagFilter);
 
       const res = await fetch(`/api/leads?${params}`);
       if (!res.ok) throw new Error("Error fetching leads");
@@ -88,76 +111,34 @@ export default function ResultsPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, sourceFilter, hasEmailFilter]);
+  }, [searchQuery, sourceFilter, hasEmailFilter, tagFilter]);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   useEffect(() => {
     fetchLeads(1);
   }, [fetchLeads]);
 
-  const handleExportCSV = async () => {
-    try {
-      const body: Record<string, unknown> = {};
-      if (selectedIds.size > 0) body.leadIds = Array.from(selectedIds);
-      if (sourceFilter !== "all") body.source = sourceFilter;
-
-      const res = await fetch("/api/exports/csv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error("Error exportando");
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("CSV exportado");
-    } catch {
-      toast.error("Error al exportar CSV");
-    }
-  };
-
-  const handleDeleteSelected = async () => {
+  const handleUnsaveSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`¿Eliminar ${selectedIds.size} leads seleccionados?`)) return;
-
-    try {
-      const promises = Array.from(selectedIds).map((id) =>
-        fetch(`/api/leads/${id}`, { method: "DELETE" })
-      );
-      await Promise.all(promises);
-      toast.success(`${selectedIds.size} leads eliminados`);
-      setSelectedIds(new Set());
-      fetchLeads(pagination.page);
-    } catch {
-      toast.error("Error al eliminar leads");
-    }
-  };
-
-  const handleSaveAsLead = async () => {
-    if (selectedIds.size === 0) return;
+    if (!confirm(`¿Quitar ${selectedIds.size} leads de guardados?`)) return;
 
     try {
       const res = await fetch("/api/leads/save", {
-        method: "POST",
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadIds: Array.from(selectedIds) }),
       });
 
-      if (!res.ok) throw new Error("Error saving leads");
+      if (!res.ok) throw new Error("Error removing leads");
 
-      const data = await res.json();
-      toast.success(`${data.count} leads guardados`);
+      toast.success(`${selectedIds.size} leads removidos de guardados`);
       setSelectedIds(new Set());
       fetchLeads(pagination.page);
     } catch {
-      toast.error("Error al guardar leads");
+      toast.error("Error al quitar leads de guardados");
     }
   };
 
@@ -170,9 +151,9 @@ export default function ResultsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100">Resultados</h1>
+          <h1 className="text-3xl font-bold text-zinc-100">Leads</h1>
           <p className="mt-1 text-zinc-400">
-            {pagination.total} leads encontrados
+            Tus leads guardados &mdash; {pagination.total} en total
           </p>
         </div>
         <div className="flex gap-2">
@@ -184,58 +165,23 @@ export default function ResultsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleSaveAsLead}
-                className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
-              >
-                <Star className="mr-2 h-4 w-4" />
-                Guardar como Lead
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddToList(true)}
-                className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
-              >
-                <ListFilter className="mr-2 h-4 w-4" />
-                Agregar a Lista
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDeleteSelected}
+                onClick={handleUnsaveSelected}
                 className="border-red-500/50 text-red-400 hover:bg-red-500/10"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
+                <StarOff className="mr-2 h-4 w-4" />
+                Quitar de Leads
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.info("Asignar tags: proximamente")}
+                className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <Tag className="mr-2 h-4 w-4" />
+                Asignar Tags
               </Button>
             </>
           )}
-          <Button
-            size="sm"
-            onClick={() => setShowCreateLead(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Agregar Lead
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowImportLeads(true)}
-            className="border-zinc-700 text-zinc-400"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Importar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            className="border-zinc-700 text-zinc-400"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Exportar CSV
-          </Button>
         </div>
       </div>
 
@@ -244,7 +190,7 @@ export default function ResultsPage() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
-            placeholder="Buscar por nombre, email, categoría..."
+            placeholder="Buscar por nombre, email, categoria..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && fetchLeads(1)}
@@ -261,7 +207,6 @@ export default function ResultsPage() {
             <SelectItem value="linkedin">LinkedIn</SelectItem>
             <SelectItem value="instagram">Instagram</SelectItem>
             <SelectItem value="facebook">Facebook</SelectItem>
-            <SelectItem value="apify">Apify</SelectItem>
             <SelectItem value="manual">Manual</SelectItem>
             <SelectItem value="csv_import">Importado</SelectItem>
           </SelectContent>
@@ -273,7 +218,26 @@ export default function ResultsPage() {
           <SelectContent>
             <SelectItem value="all">Todo</SelectItem>
             <SelectItem value="yes">Con email</SelectItem>
-            <SelectItem value="phone">Con teléfono</SelectItem>
+            <SelectItem value="phone">Con telefono</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); }}>
+          <SelectTrigger className="w-[160px] bg-zinc-800 border-zinc-700 text-zinc-300">
+            <SelectValue placeholder="Tag" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los tags</SelectItem>
+            {tags.map((tag) => (
+              <SelectItem key={tag.id} value={tag.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  {tag.name} ({tag._count.assignments})
+                </span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button
@@ -292,7 +256,7 @@ export default function ResultsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
         </div>
       ) : (
-        <ResultsTable
+        <LeadsTable
           leads={leads}
           pagination={pagination}
           selectedIds={selectedIds}
@@ -301,23 +265,6 @@ export default function ResultsPage() {
           onLeadClick={handleLeadClick}
         />
       )}
-
-      {/* Modals */}
-      <AddToListModal
-        open={showAddToList}
-        onOpenChange={setShowAddToList}
-        leadIds={Array.from(selectedIds)}
-      />
-      <CreateLeadModal
-        open={showCreateLead}
-        onOpenChange={setShowCreateLead}
-        onCreated={() => fetchLeads(1)}
-      />
-      <ImportLeadsModal
-        open={showImportLeads}
-        onOpenChange={setShowImportLeads}
-        onImported={() => fetchLeads(1)}
-      />
 
       {/* Lead Detail Sheet */}
       <LeadDetailSheet
