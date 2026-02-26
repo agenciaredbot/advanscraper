@@ -11,6 +11,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,6 +36,9 @@ import {
   Phone,
   Globe,
   XCircle,
+  ArrowRight,
+  EyeOff,
+  Columns3,
 } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
@@ -51,8 +61,23 @@ interface ParsedLead {
   category?: string;
 }
 
+type LeadField = keyof ParsedLead;
+
+// All available target fields with Spanish labels
+const FIELD_OPTIONS: Array<{ value: LeadField | "skip"; label: string }> = [
+  { value: "skip", label: "Omitir columna" },
+  { value: "businessName", label: "Negocio" },
+  { value: "contactPerson", label: "Contacto" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Teléfono" },
+  { value: "website", label: "Website" },
+  { value: "address", label: "Dirección" },
+  { value: "city", label: "Ciudad" },
+  { value: "category", label: "Categoría" },
+];
+
 // Column name mapping (Spanish + English variants → field name)
-const COLUMN_MAP: Record<string, keyof ParsedLead> = {
+const COLUMN_MAP: Record<string, LeadField> = {
   // Business name
   negocio: "businessName",
   empresa: "businessName",
@@ -105,26 +130,25 @@ const COLUMN_MAP: Record<string, keyof ParsedLead> = {
   sector: "category",
 };
 
-function mapColumns(headers: string[]): Record<number, keyof ParsedLead> {
-  const mapping: Record<number, keyof ParsedLead> = {};
-  headers.forEach((header, idx) => {
+function autoMapColumns(
+  headers: string[]
+): Array<LeadField | "skip"> {
+  return headers.map((header) => {
     const normalized = header.toLowerCase().trim();
-    if (COLUMN_MAP[normalized]) {
-      mapping[idx] = COLUMN_MAP[normalized];
-    }
+    return COLUMN_MAP[normalized] || "skip";
   });
-  return mapping;
 }
 
-function parseRows(
+function parseRowsWithMapping(
   rows: string[][],
-  columnMapping: Record<number, keyof ParsedLead>
+  mapping: Array<LeadField | "skip">
 ): ParsedLead[] {
   return rows
     .map((row) => {
       const lead: ParsedLead = {};
-      Object.entries(columnMapping).forEach(([idxStr, field]) => {
-        const value = row[parseInt(idxStr)]?.trim();
+      mapping.forEach((field, idx) => {
+        if (field === "skip") return;
+        const value = row[idx]?.trim();
         if (value) lead[field] = value;
       });
       return lead;
@@ -141,9 +165,11 @@ export function ImportLeadsModal({
   onOpenChange,
   onImported,
 }: ImportLeadsModalProps) {
-  const [step, setStep] = useState<"upload" | "preview">("upload");
+  const [step, setStep] = useState<"upload" | "mapping" | "preview">("upload");
+  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Array<LeadField | "skip">>([]);
   const [parsedLeads, setParsedLeads] = useState<ParsedLead[]>([]);
-  const [headers, setHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -152,8 +178,10 @@ export function ImportLeadsModal({
 
   const resetState = useCallback(() => {
     setStep("upload");
+    setRawRows([]);
+    setFileHeaders([]);
+    setColumnMapping([]);
     setParsedLeads([]);
-    setHeaders([]);
     setFileName("");
     setImporting(false);
     setDragging(false);
@@ -165,35 +193,31 @@ export function ImportLeadsModal({
     onOpenChange(open);
   };
 
-  // ── File parsing ──
+  // ── File parsing → go to mapping step ──
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
     const ext = file.name.split(".").pop()?.toLowerCase();
 
+    const handleParsedRows = (rows: string[][]) => {
+      if (rows.length < 2) {
+        toast.error("El archivo está vacío o solo tiene encabezados");
+        return;
+      }
+      const headers = rows[0].map((h) => (typeof h === "string" ? h : String(h)));
+      const dataRows = rows.slice(1);
+      const mapping = autoMapColumns(headers);
+
+      setFileHeaders(headers);
+      setRawRows(dataRows);
+      setColumnMapping(mapping);
+      setStep("mapping");
+    };
+
     if (ext === "csv" || ext === "tsv" || ext === "txt") {
       Papa.parse(file, {
         complete: (results) => {
-          const rows = results.data as string[][];
-          if (rows.length < 2) {
-            toast.error("El archivo está vacío o solo tiene encabezados");
-            return;
-          }
-          const fileHeaders = rows[0];
-          const columnMapping = mapColumns(fileHeaders);
-          if (Object.keys(columnMapping).length === 0) {
-            toast.error(
-              "No se reconocieron las columnas. Usa nombres como: Negocio, Email, Teléfono, Website, Ciudad"
-            );
-            return;
-          }
-          const dataRows = rows.slice(1);
-          const leads = parseRows(dataRows, columnMapping);
-          const totalDataRows = dataRows.filter((r) => r.some((cell) => cell?.trim())).length;
-          setSkippedCount(totalDataRows - leads.length);
-          setHeaders(fileHeaders);
-          setParsedLeads(leads);
-          setStep("preview");
+          handleParsedRows(results.data as string[][]);
         },
         error: () => {
           toast.error("Error al leer el archivo CSV");
@@ -209,25 +233,7 @@ export function ImportLeadsModal({
           const rows: string[][] = XLSX.utils.sheet_to_json(firstSheet, {
             header: 1,
           });
-          if (rows.length < 2) {
-            toast.error("El archivo está vacío o solo tiene encabezados");
-            return;
-          }
-          const fileHeaders = rows[0].map(String);
-          const columnMapping = mapColumns(fileHeaders);
-          if (Object.keys(columnMapping).length === 0) {
-            toast.error(
-              "No se reconocieron las columnas. Usa nombres como: Negocio, Email, Teléfono, Website, Ciudad"
-            );
-            return;
-          }
-          const dataRows = rows.slice(1).map((r) => r.map(String));
-          const leads = parseRows(dataRows, columnMapping);
-          const totalDataRows = dataRows.filter((r) => r.some((cell) => cell?.trim())).length;
-          setSkippedCount(totalDataRows - leads.length);
-          setHeaders(fileHeaders);
-          setParsedLeads(leads);
-          setStep("preview");
+          handleParsedRows(rows.map((r) => r.map(String)));
         } catch {
           toast.error("Error al leer el archivo Excel");
         }
@@ -248,6 +254,30 @@ export function ImportLeadsModal({
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) processFile(file);
+  };
+
+  // ── Mapping → Preview ──
+
+  const handleColumnChange = (idx: number, value: string) => {
+    setColumnMapping((prev) => {
+      const next = [...prev];
+      next[idx] = value as LeadField | "skip";
+      return next;
+    });
+  };
+
+  const mappedFieldCount = columnMapping.filter((f) => f !== "skip").length;
+
+  const handleContinueToPreview = () => {
+    if (mappedFieldCount === 0) {
+      toast.error("Debes mapear al menos una columna");
+      return;
+    }
+    const leads = parseRowsWithMapping(rawRows, columnMapping);
+    const totalDataRows = rawRows.filter((r) => r.some((cell) => cell?.trim())).length;
+    setSkippedCount(totalDataRows - leads.length);
+    setParsedLeads(leads);
+    setStep("preview");
   };
 
   // ── Import ──
@@ -302,20 +332,37 @@ export function ImportLeadsModal({
   const withPhone = parsedLeads.filter((l) => l.phone).length;
   const withWebsite = parsedLeads.filter((l) => l.website).length;
 
+  // ── Sample values for mapping step ──
+  const getSampleValues = (colIdx: number): string[] => {
+    const samples: string[] = [];
+    for (let i = 0; i < Math.min(rawRows.length, 3); i++) {
+      const val = rawRows[i]?.[colIdx]?.trim();
+      if (val) samples.push(val);
+    }
+    return samples;
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="bg-zinc-900 border-zinc-800 max-w-4xl">
         <DialogHeader>
           <DialogTitle className="text-zinc-100">
-            {step === "upload" ? "Importar Contactos" : "Preview de Importación"}
+            {step === "upload"
+              ? "Importar Contactos"
+              : step === "mapping"
+                ? "Mapear Columnas"
+                : "Preview de Importación"}
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             {step === "upload"
               ? "Sube un archivo CSV o Excel con tus contactos"
-              : `${parsedLeads.length} contactos encontrados en ${fileName}`}
+              : step === "mapping"
+                ? `${fileHeaders.length} columnas encontradas en ${fileName} — asigna cada una a un campo o márcala para omitir`
+                : `${parsedLeads.length} contactos listos para importar desde ${fileName}`}
           </DialogDescription>
         </DialogHeader>
 
+        {/* ── Step 1: Upload ── */}
         {step === "upload" && (
           <div className="py-4 space-y-4">
             {/* Drop zone */}
@@ -362,6 +409,111 @@ export function ImportLeadsModal({
           </div>
         )}
 
+        {/* ── Step 2: Column Mapping ── */}
+        {step === "mapping" && (
+          <div className="py-2 space-y-3">
+            {/* Summary badge */}
+            <div className="flex items-center gap-3 text-sm">
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Columns3 className="h-4 w-4" />
+                {mappedFieldCount} columnas mapeadas
+              </span>
+              {columnMapping.filter((f) => f === "skip").length > 0 && (
+                <span className="flex items-center gap-1.5 text-zinc-500">
+                  <EyeOff className="h-3.5 w-3.5" />
+                  {columnMapping.filter((f) => f === "skip").length} omitidas
+                </span>
+              )}
+            </div>
+
+            {/* Column mapping list */}
+            <div className="rounded-lg border border-zinc-800 overflow-hidden max-h-[380px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-zinc-800 hover:bg-transparent">
+                    <TableHead className="text-zinc-400 text-xs w-[200px]">
+                      Columna del archivo
+                    </TableHead>
+                    <TableHead className="text-zinc-400 text-xs w-[200px]">
+                      Asignar a campo
+                    </TableHead>
+                    <TableHead className="text-zinc-400 text-xs">
+                      Valores de ejemplo
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fileHeaders.map((header, idx) => {
+                    const currentField = columnMapping[idx];
+                    const isSkipped = currentField === "skip";
+                    const samples = getSampleValues(idx);
+
+                    return (
+                      <TableRow
+                        key={idx}
+                        className={`border-zinc-800 ${isSkipped ? "opacity-50" : ""}`}
+                      >
+                        <TableCell className="py-2">
+                          <span className="text-sm text-zinc-200 font-medium">
+                            {header}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Select
+                            value={currentField}
+                            onValueChange={(v) => handleColumnChange(idx, v)}
+                          >
+                            <SelectTrigger
+                              className={`h-8 text-xs ${
+                                isSkipped
+                                  ? "bg-zinc-800/50 border-zinc-700/50 text-zinc-500"
+                                  : "bg-zinc-800 border-zinc-700 text-zinc-200"
+                              }`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FIELD_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  <span className="flex items-center gap-1.5">
+                                    {opt.value === "skip" && (
+                                      <EyeOff className="h-3 w-3 text-zinc-500" />
+                                    )}
+                                    {opt.label}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {samples.length > 0 ? (
+                              samples.map((val, si) => (
+                                <span
+                                  key={si}
+                                  className="text-[11px] text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded max-w-[160px] truncate inline-block"
+                                >
+                                  {val}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-zinc-600 italic">
+                                sin datos
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Preview ── */}
         {step === "preview" && (
           <div className="py-2 space-y-4">
             {/* Stats */}
@@ -455,14 +607,24 @@ export function ImportLeadsModal({
           </div>
         )}
 
+        {/* ── Footer ── */}
         <DialogFooter>
-          {step === "preview" && (
+          {step === "mapping" && (
             <Button
               variant="outline"
               onClick={() => setStep("upload")}
               className="border-zinc-700 text-zinc-400 mr-auto"
             >
               Cambiar archivo
+            </Button>
+          )}
+          {step === "preview" && (
+            <Button
+              variant="outline"
+              onClick={() => setStep("mapping")}
+              className="border-zinc-700 text-zinc-400 mr-auto"
+            >
+              Editar mapeo
             </Button>
           )}
           <Button
@@ -472,6 +634,16 @@ export function ImportLeadsModal({
           >
             Cancelar
           </Button>
+          {step === "mapping" && (
+            <Button
+              onClick={handleContinueToPreview}
+              disabled={mappedFieldCount === 0}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Continuar ({mappedFieldCount} campos)
+            </Button>
+          )}
           {step === "preview" && (
             <Button
               onClick={handleImport}
