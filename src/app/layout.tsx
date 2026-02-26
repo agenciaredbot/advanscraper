@@ -13,8 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LeadScraper Pro",
+  title: "AdvanScraper",
   description: "Extrae leads de Google Maps, LinkedIn e Instagram. Outreach multicanal con IA.",
+  icons: {
+    icon: "/Favicon_advanScraper.png",
+    apple: "/Favicon_advanScraper.png",
+  },
 };
 
 export default function RootLayout({

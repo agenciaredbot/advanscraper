@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap } from "lucide-react";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -51,9 +51,14 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 p-4">
       <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-            <Zap className="h-6 w-6 text-emerald-400" />
-          </div>
+          <Image
+            src="/Logo_AdvanceScraper.png"
+            alt="AdvanScraper"
+            width={200}
+            height={85}
+            className="mx-auto"
+            priority
+          />
           <CardTitle className="text-2xl font-bold text-zinc-100">
             Crear Cuenta
           </CardTitle>

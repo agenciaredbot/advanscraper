@@ -16,10 +16,10 @@ import {
   Video,
   Download,
   Settings,
-  Zap,
   LogOut,
   Shield,
 } from "lucide-react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -65,12 +65,15 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-950">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-zinc-800 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          <Zap className="h-4 w-4 text-emerald-400" />
-        </div>
-        <span className="font-bold text-lg text-zinc-100">LeadScraper</span>
-        <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Pro</span>
+      <div className="flex h-16 items-center border-b border-zinc-800 px-5">
+        <Image
+          src="/Logo_AdvanceScraper.png"
+          alt="AdvanScraper"
+          width={150}
+          height={64}
+          className="h-8 w-auto"
+          priority
+        />
       </div>
 
       {/* Navigation */}
