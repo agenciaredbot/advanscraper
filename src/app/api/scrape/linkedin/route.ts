@@ -63,16 +63,21 @@ export async function POST(request: NextRequest) {
       // Save results to DB (bulk insert, skip duplicates)
       const validResults = results.filter((r) => r.profileUrl);
       const result = await prisma.lead.createMany({
-        data: validResults.map((data) => ({
-          userId: user.id,
-          searchId: search.id,
-          source: "linkedin",
-          contactPerson: data.contactPerson,
-          contactTitle: data.contactTitle,
-          city: data.city || location || null,
-          profileUrl: data.profileUrl,
-          businessName: data.company,
-        })),
+        data: validResults.map((data) => {
+          const parts = data.contactPerson ? data.contactPerson.trim().split(/\s+/) : [];
+          return {
+            userId: user.id,
+            searchId: search.id,
+            source: "linkedin",
+            contactPerson: data.contactPerson,
+            firstName: data.firstName || parts[0] || null,
+            lastName: data.lastName || (parts.length > 1 ? parts.slice(1).join(" ") : null),
+            contactTitle: data.contactTitle,
+            city: data.city || location || null,
+            profileUrl: data.profileUrl,
+            businessName: data.company,
+          };
+        }),
         skipDuplicates: true,
       });
       const savedCount = result.count;

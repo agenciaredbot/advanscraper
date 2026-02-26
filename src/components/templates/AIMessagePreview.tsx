@@ -24,6 +24,8 @@ interface AIMessagePreviewProps {
 const DEFAULT_LEAD: LeadContext = {
   businessName: "Restaurante El Buen Sabor",
   contactPerson: "Maria Garcia Lopez",
+  firstName: "Maria",
+  lastName: "Garcia Lopez",
   contactTitle: "Propietaria",
   email: "maria@elbuensabor.com",
   website: "https://elbuensabor.com",
@@ -123,7 +125,7 @@ export function AIMessagePreview({
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 px-4 py-3">
         <p className="text-xs font-medium text-zinc-500 mb-1">Lead de prueba:</p>
         <p className="text-xs text-zinc-400">
-          {activeLead.contactPerson} - {activeLead.businessName} ({activeLead.city})
+          {activeLead.firstName || activeLead.contactPerson} - {activeLead.businessName} ({activeLead.city})
         </p>
       </div>
 

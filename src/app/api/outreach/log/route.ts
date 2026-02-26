@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         include: {
           lead: {
-            select: { businessName: true, contactPerson: true, email: true, profileUrl: true },
+            select: { businessName: true, contactPerson: true, firstName: true, lastName: true, email: true, profileUrl: true },
           },
         },
       }),

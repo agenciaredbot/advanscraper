@@ -28,6 +28,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -179,13 +181,13 @@ export default function LeadDetailPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-100">
-                {lead.businessName || lead.contactPerson || "Sin nombre"}
+                {lead.businessName || lead.contactPerson || lead.firstName || "Sin nombre"}
               </h1>
               <Badge className={srcConfig.color}>{srcConfig.label}</Badge>
             </div>
-            {lead.contactPerson && lead.businessName && (
+            {(lead.firstName || lead.contactPerson) && lead.businessName && (
               <p className="text-sm text-zinc-400">
-                {lead.contactPerson}
+                {[lead.firstName, lead.lastName].filter(Boolean).join(" ") || lead.contactPerson}
                 {lead.contactTitle ? ` - ${lead.contactTitle}` : ""}
               </p>
             )}

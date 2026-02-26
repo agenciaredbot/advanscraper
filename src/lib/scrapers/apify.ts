@@ -328,6 +328,8 @@ export interface NormalizedLead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -343,6 +345,16 @@ export interface NormalizedLead {
   profileUrl: string | null;
 }
 
+/** Split a full name into firstName and lastName */
+function splitName(fullName: string | null): { firstName: string | null; lastName: string | null } {
+  if (!fullName) return { firstName: null, lastName: null };
+  const parts = fullName.trim().split(/\s+/);
+  return {
+    firstName: parts[0] || null,
+    lastName: parts.length > 1 ? parts.slice(1).join(" ") : null,
+  };
+}
+
 export function normalizeGoogleMapsApify(
   results: ApifyGoogleMapsResult[]
 ): NormalizedLead[] {
@@ -350,6 +362,8 @@ export function normalizeGoogleMapsApify(
     source: "google_maps",
     businessName: r.title,
     contactPerson: null,
+    firstName: null,
+    lastName: null,
     contactTitle: null,
     email: r.emails?.[0] || null,
     phone: r.phone,
@@ -369,24 +383,29 @@ export function normalizeGoogleMapsApify(
 export function normalizeLinkedInApify(
   results: ApifyLinkedInResult[]
 ): NormalizedLead[] {
-  return results.map((r) => ({
-    source: "linkedin",
-    businessName: r.company,
-    contactPerson: r.fullName,
-    contactTitle: r.headline,
-    email: r.email,
-    phone: null,
-    website: null,
-    address: null,
-    city: r.location,
-    category: null,
-    rating: null,
-    reviewsCount: null,
-    followers: null,
-    isBusiness: null,
-    bio: null,
-    profileUrl: r.profileUrl,
-  }));
+  return results.map((r) => {
+    const { firstName, lastName } = splitName(r.fullName);
+    return {
+      source: "linkedin",
+      businessName: r.company,
+      contactPerson: r.fullName,
+      firstName,
+      lastName,
+      contactTitle: r.headline,
+      email: r.email,
+      phone: null,
+      website: null,
+      address: null,
+      city: r.location,
+      category: null,
+      rating: null,
+      reviewsCount: null,
+      followers: null,
+      isBusiness: null,
+      bio: null,
+      profileUrl: r.profileUrl,
+    };
+  });
 }
 
 export function normalizeInstagramApify(
@@ -399,10 +418,13 @@ export function normalizeInstagramApify(
       if (bioEmail) email = bioEmail;
     }
 
+    const { firstName, lastName } = splitName(r.fullName);
     return {
       source: "instagram",
       businessName: r.isBusinessAccount ? r.fullName : null,
       contactPerson: r.fullName,
+      firstName,
+      lastName,
       contactTitle: null,
       email,
       phone: r.businessPhoneNumber,
@@ -579,6 +601,8 @@ export function normalizeFacebookApify(
       source: "facebook",
       businessName: r.title,
       contactPerson: null,
+      firstName: null,
+      lastName: null,
       contactTitle: null,
       email,
       phone: r.phone,

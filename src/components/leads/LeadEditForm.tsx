@@ -13,6 +13,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -57,9 +59,8 @@ interface LeadEditFormProps {
 
 export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
   const [businessName, setBusinessName] = useState(lead.businessName || "");
-  const [contactPerson, setContactPerson] = useState(
-    lead.contactPerson || ""
-  );
+  const [firstName, setFirstName] = useState(lead.firstName || "");
+  const [lastName, setLastName] = useState(lead.lastName || "");
   const [contactTitle, setContactTitle] = useState(lead.contactTitle || "");
   const [email, setEmail] = useState(lead.email || "");
   const [phone, setPhone] = useState(lead.phone || "");
@@ -80,7 +81,9 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessName: businessName || null,
-          contactPerson: contactPerson || null,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          contactPerson: [firstName, lastName].filter(Boolean).join(" ") || null,
           contactTitle: contactTitle || null,
           email: email || null,
           phone: phone || null,
@@ -126,13 +129,24 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
           />
         </div>
 
-        {/* Contact Person */}
+        {/* First Name */}
         <div className="space-y-1.5">
-          <Label className="text-zinc-400 text-xs">Persona de contacto</Label>
+          <Label className="text-zinc-400 text-xs">Nombre</Label>
           <Input
-            value={contactPerson}
-            onChange={(e) => setContactPerson(e.target.value)}
-            placeholder="Nombre del contacto"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Nombre de contacto"
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Last Name */}
+        <div className="space-y-1.5">
+          <Label className="text-zinc-400 text-xs">Apellido</Label>
+          <Input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Apellido"
             className={inputClassName}
           />
         </div>

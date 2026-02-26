@@ -30,6 +30,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -186,11 +188,12 @@ export function LeadDetailSheet({
                     <SheetTitle className="text-lg font-semibold text-zinc-100 truncate">
                       {lead.businessName ||
                         lead.contactPerson ||
+                        lead.firstName ||
                         "Sin nombre"}
                     </SheetTitle>
                     <SheetDescription className="text-sm text-zinc-500">
-                      {lead.contactPerson && lead.businessName
-                        ? lead.contactPerson
+                      {(lead.firstName || lead.contactPerson) && lead.businessName
+                        ? [lead.firstName, lead.lastName].filter(Boolean).join(" ") || lead.contactPerson
                         : lead.contactTitle || "Lead"}
                     </SheetDescription>
                   </div>

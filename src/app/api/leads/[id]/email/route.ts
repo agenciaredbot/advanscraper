@@ -63,7 +63,7 @@ export async function POST(
       {
         to: {
           email: lead.email,
-          name: lead.businessName || lead.contactPerson || undefined,
+          name: lead.businessName || lead.firstName || lead.contactPerson || undefined,
         },
         subject,
         htmlContent,

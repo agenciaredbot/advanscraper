@@ -53,6 +53,8 @@ interface ImportLeadsModalProps {
 interface ParsedLead {
   businessName?: string;
   contactPerson?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -67,7 +69,8 @@ type LeadField = keyof ParsedLead;
 const FIELD_OPTIONS: Array<{ value: LeadField | "skip"; label: string }> = [
   { value: "skip", label: "Omitir columna" },
   { value: "businessName", label: "Negocio" },
-  { value: "contactPerson", label: "Contacto" },
+  { value: "firstName", label: "Nombre" },
+  { value: "lastName", label: "Apellido" },
   { value: "email", label: "Email" },
   { value: "phone", label: "Teléfono" },
   { value: "website", label: "Website" },
@@ -86,13 +89,21 @@ const COLUMN_MAP: Record<string, LeadField> = {
   business: "businessName",
   "business name": "businessName",
   company: "businessName",
-  nombre: "businessName",
-  // Contact person
-  contacto: "contactPerson",
-  "persona de contacto": "contactPerson",
-  "contact person": "contactPerson",
-  contact: "contactPerson",
-  persona: "contactPerson",
+  nombre: "firstName",
+  // Contact person / First name
+  contacto: "firstName",
+  "persona de contacto": "firstName",
+  "contact person": "firstName",
+  contact: "firstName",
+  persona: "firstName",
+  "first name": "firstName",
+  firstname: "firstName",
+  "nombre de pila": "firstName",
+  // Last name
+  apellido: "lastName",
+  "last name": "lastName",
+  lastname: "lastName",
+  surname: "lastName",
   // Email
   email: "email",
   correo: "email",
@@ -153,12 +164,19 @@ function parseRowsWithMapping(
       });
       return lead;
     })
+    .map((lead) => {
+      // Auto-derive contactPerson from firstName+lastName
+      if ((lead.firstName || lead.lastName) && !lead.contactPerson) {
+        lead.contactPerson = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+      }
+      return lead;
+    })
     .filter((lead) => Object.keys(lead).length > 0);
 }
 
-const CSV_TEMPLATE = `Negocio,Contacto,Email,Teléfono,Website,Dirección,Ciudad,Categoría
-Restaurante El Buen Sabor,Juan Pérez,juan@buensabor.com,+57 300 111 2222,https://buensabor.com,Calle 10 #5-20,Bogotá,Restaurante
-Dentista Sonrisa,María López,info@sonrisa.co,+57 310 333 4444,https://sonrisa.co,Carrera 7 #45-10,Medellín,Dentista`;
+const CSV_TEMPLATE = `Negocio,Nombre,Apellido,Email,Teléfono,Website,Dirección,Ciudad,Categoría
+Restaurante El Buen Sabor,Juan,Pérez,juan@buensabor.com,+57 300 111 2222,https://buensabor.com,Calle 10 #5-20,Bogotá,Restaurante
+Dentista Sonrisa,María,López,info@sonrisa.co,+57 310 333 4444,https://sonrisa.co,Carrera 7 #45-10,Medellín,Dentista`;
 
 export function ImportLeadsModal({
   open,
@@ -555,7 +573,8 @@ export function ImportLeadsModal({
                   <TableRow className="border-zinc-800 hover:bg-transparent">
                     <TableHead className="text-zinc-400 text-xs w-8">#</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Negocio</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Contacto</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Nombre</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Apellido</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Email</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Teléfono</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Website</TableHead>
@@ -571,7 +590,10 @@ export function ImportLeadsModal({
                         {lead.businessName || <span className="text-zinc-700">—</span>}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
-                        {lead.contactPerson || <span className="text-zinc-700">—</span>}
+                        {lead.firstName || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.lastName || <span className="text-zinc-700">—</span>}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[160px] truncate">
                         {lead.email || <span className="text-zinc-700">—</span>}
@@ -596,7 +618,7 @@ export function ImportLeadsModal({
                   ))}
                   {parsedLeads.length > 10 && (
                     <TableRow className="border-zinc-800">
-                      <TableCell colSpan={8} className="text-center text-xs text-zinc-500 py-3">
+                      <TableCell colSpan={9} className="text-center text-xs text-zinc-500 py-3">
                         ... y {parsedLeads.length - 10} contactos más
                       </TableCell>
                     </TableRow>

@@ -25,7 +25,8 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     businessName: "",
-    contactPerson: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     website: "",
@@ -41,7 +42,8 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
   const resetForm = () => {
     setForm({
       businessName: "",
-      contactPerson: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
       website: "",
@@ -52,8 +54,8 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
   };
 
   const handleSave = async () => {
-    if (!form.businessName.trim() && !form.contactPerson.trim()) {
-      toast.error("Ingresa al menos un nombre de negocio o persona de contacto");
+    if (!form.businessName.trim() && !form.firstName.trim()) {
+      toast.error("Ingresa al menos un nombre de negocio o nombre de contacto");
       return;
     }
 
@@ -63,7 +65,11 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lead: { ...form, source: "manual" },
+          lead: {
+            ...form,
+            contactPerson: [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(" ") || null,
+            source: "manual",
+          },
         }),
       });
 
@@ -94,33 +100,46 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          {/* Row 1: Business name + Contact person */}
+          {/* Row 1: Business name */}
+          <div className="space-y-1.5">
+            <Label className="text-zinc-300 text-xs flex items-center gap-1">
+              <Building2 className="h-3 w-3" /> Negocio
+            </Label>
+            <Input
+              placeholder="Nombre del negocio"
+              value={form.businessName}
+              onChange={(e) => updateField("businessName", e.target.value)}
+              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+
+          {/* Row 2: Nombre + Apellido */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-zinc-300 text-xs flex items-center gap-1">
-                <Building2 className="h-3 w-3" /> Negocio
+                <User className="h-3 w-3" /> Nombre
               </Label>
               <Input
-                placeholder="Nombre del negocio"
-                value={form.businessName}
-                onChange={(e) => updateField("businessName", e.target.value)}
+                placeholder="Nombre de contacto"
+                value={form.firstName}
+                onChange={(e) => updateField("firstName", e.target.value)}
                 className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
               />
             </div>
             <div className="space-y-1.5">
               <Label className="text-zinc-300 text-xs flex items-center gap-1">
-                <User className="h-3 w-3" /> Contacto
+                <User className="h-3 w-3" /> Apellido
               </Label>
               <Input
-                placeholder="Persona de contacto"
-                value={form.contactPerson}
-                onChange={(e) => updateField("contactPerson", e.target.value)}
+                placeholder="Apellido"
+                value={form.lastName}
+                onChange={(e) => updateField("lastName", e.target.value)}
                 className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
               />
             </div>
           </div>
 
-          {/* Row 2: Email + Phone */}
+          {/* Row 3: Email + Phone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-zinc-300 text-xs flex items-center gap-1">
@@ -148,7 +167,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
             </div>
           </div>
 
-          {/* Row 3: Website */}
+          {/* Row 4: Website */}
           <div className="space-y-1.5">
             <Label className="text-zinc-300 text-xs flex items-center gap-1">
               <Globe className="h-3 w-3" /> Website
@@ -161,7 +180,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
             />
           </div>
 
-          {/* Row 4: Address + City */}
+          {/* Row 5: Address + City */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-zinc-300 text-xs flex items-center gap-1">
@@ -187,7 +206,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
             </div>
           </div>
 
-          {/* Row 5: Category */}
+          {/* Row 6: Category */}
           <div className="space-y-1.5">
             <Label className="text-zinc-300 text-xs flex items-center gap-1">
               <Tag className="h-3 w-3" /> Categoría
@@ -211,7 +230,7 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || (!form.businessName.trim() && !form.contactPerson.trim())}
+            disabled={saving || (!form.businessName.trim() && !form.firstName.trim())}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

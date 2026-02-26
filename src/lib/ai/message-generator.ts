@@ -7,7 +7,9 @@ import type { GenerateMessageRequest, GeneratedMessage, LeadContext } from "./ty
  */
 function buildLeadContext(lead: LeadContext): string {
   const parts: string[] = [];
-  if (lead.contactPerson) parts.push(`Nombre: ${lead.contactPerson}`);
+  if (lead.firstName) parts.push(`Nombre: ${lead.firstName}`);
+  if (lead.lastName) parts.push(`Apellido: ${lead.lastName}`);
+  if (!lead.firstName && lead.contactPerson) parts.push(`Nombre completo: ${lead.contactPerson}`);
   if (lead.businessName) parts.push(`Negocio: ${lead.businessName}`);
   if (lead.contactTitle) parts.push(`Título: ${lead.contactTitle}`);
   if (lead.category) parts.push(`Categoría: ${lead.category}`);
@@ -125,9 +127,14 @@ function parseResponse(channel: string, response: string): GeneratedMessage {
  * Replace template placeholders with lead data
  */
 export function replacePlaceholders(template: string, lead: LeadContext): string {
+  const fullName = lead.contactPerson || [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "";
+  const firstName = lead.firstName || lead.contactPerson?.split(" ")[0] || "";
+  const lastName = lead.lastName || "";
+
   const replacements: Record<string, string> = {
-    "{{nombre}}": lead.contactPerson || "allí",
-    "{{nombre_pila}}": lead.contactPerson?.split(" ")[0] || "allí",
+    "{{nombre}}": fullName || "allí",
+    "{{nombre_pila}}": firstName || "allí",
+    "{{apellido}}": lastName,
     "{{negocio}}": lead.businessName || "tu negocio",
     "{{ciudad}}": lead.city || "tu ciudad",
     "{{categoría}}": lead.category || "tu sector",

@@ -48,8 +48,9 @@ export interface TemplateEditorProps {
 // -------------------------------------------------------------------
 
 const TEMPLATE_VARIABLES = [
-  { key: "{{nombre}}", label: "Nombre", description: "contactPerson o businessName" },
-  { key: "{{nombre_pila}}", label: "Nombre pila", description: "Primer nombre" },
+  { key: "{{nombre}}", label: "Nombre completo", description: "firstName + lastName" },
+  { key: "{{nombre_pila}}", label: "Nombre", description: "Solo primer nombre (firstName)" },
+  { key: "{{apellido}}", label: "Apellido", description: "Solo apellido (lastName)" },
   { key: "{{negocio}}", label: "Negocio", description: "businessName" },
   { key: "{{ciudad}}", label: "Ciudad", description: "city" },
   { key: "{{categoria}}", label: "Categoria", description: "category" },

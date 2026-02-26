@@ -92,7 +92,7 @@ export async function PATCH(
 
     // Allowlist of editable fields
     const allowedFields = [
-      "businessName", "contactPerson", "contactTitle", "email", "phone",
+      "businessName", "contactPerson", "firstName", "lastName", "contactTitle", "email", "phone",
       "website", "address", "city", "country", "category", "bio", "profileUrl",
     ] as const;
 

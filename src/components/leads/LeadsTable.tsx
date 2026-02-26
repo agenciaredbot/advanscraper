@@ -25,6 +25,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -169,8 +171,13 @@ export function LeadsTable({
                   <TableCell>
                     <div>
                       <p className="font-medium text-zinc-200">
-                        {lead.businessName || lead.contactPerson || "Sin nombre"}
+                        {lead.businessName || lead.contactPerson || lead.firstName || "Sin nombre"}
                       </p>
+                      {lead.firstName && lead.businessName && (
+                        <p className="text-xs text-zinc-400">
+                          {[lead.firstName, lead.lastName].filter(Boolean).join(" ")}
+                        </p>
+                      )}
                       {lead.category && (
                         <p className="text-xs text-zinc-500">{lead.category}</p>
                       )}

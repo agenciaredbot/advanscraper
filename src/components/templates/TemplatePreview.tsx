@@ -32,6 +32,8 @@ interface TemplatePreviewProps {
 const DEFAULT_SAMPLE_LEAD: LeadContext = {
   businessName: "Restaurante El Buen Sabor",
   contactPerson: "Maria Garcia Lopez",
+  firstName: "Maria",
+  lastName: "Garcia Lopez",
   contactTitle: "Propietaria",
   email: "maria@elbuensabor.com",
   phone: "+52 55 1234 5678",
@@ -51,8 +53,8 @@ const DEFAULT_SAMPLE_LEAD: LeadContext = {
 function replaceVariables(text: string, lead: LeadContext): string {
   if (!text) return "";
 
-  const firstName = lead.contactPerson?.split(" ")[0] ?? lead.businessName ?? "";
-  const nombre = lead.contactPerson ?? lead.businessName ?? "";
+  const firstName = lead.firstName ?? lead.contactPerson?.split(" ")[0] ?? lead.businessName ?? "";
+  const nombre = lead.contactPerson ?? [lead.firstName, lead.lastName].filter(Boolean).join(" ") ?? lead.businessName ?? "";
 
   return text
     .replace(/\{\{nombre\}\}/g, nombre)
@@ -274,7 +276,9 @@ export function TemplatePreview({ template, sampleLead }: TemplatePreviewProps) 
         <p className="text-xs font-medium text-zinc-500 mb-2">Datos de ejemplo usados:</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <span className="text-zinc-500">Nombre:</span>
-          <span className="text-zinc-400">{lead.contactPerson}</span>
+          <span className="text-zinc-400">{lead.firstName || lead.contactPerson}</span>
+          <span className="text-zinc-500">Apellido:</span>
+          <span className="text-zinc-400">{lead.lastName || "—"}</span>
           <span className="text-zinc-500">Negocio:</span>
           <span className="text-zinc-400">{lead.businessName}</span>
           <span className="text-zinc-500">Ciudad:</span>

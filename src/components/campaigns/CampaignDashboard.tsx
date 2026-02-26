@@ -37,6 +37,8 @@ interface CampaignLead {
     id: string;
     businessName: string | null;
     contactPerson: string | null;
+    firstName: string | null;
+    lastName: string | null;
     email: string | null;
     phone: string | null;
     city: string | null;
@@ -301,7 +303,7 @@ export function CampaignDashboard({ campaignId }: { campaignId: string }) {
                     <TableRow key={cl.id} className="border-zinc-800">
                       <TableCell>
                         <p className="text-sm text-zinc-200">
-                          {cl.lead.businessName || cl.lead.contactPerson || "Sin nombre"}
+                          {cl.lead.businessName || cl.lead.contactPerson || cl.lead.firstName || "Sin nombre"}
                         </p>
                         {cl.lead.city && (
                           <p className="text-xs text-zinc-500">{cl.lead.city}</p>

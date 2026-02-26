@@ -20,6 +20,8 @@ interface Lead {
   id: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   city: string | null;
@@ -272,7 +274,7 @@ export function LeadSelector({
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-zinc-200 truncate">
-                        {lead.businessName || lead.contactPerson || "Sin nombre"}
+                        {lead.businessName || lead.contactPerson || lead.firstName || "Sin nombre"}
                       </p>
                       <p className="text-xs text-zinc-500 truncate">
                         {channel === "email"

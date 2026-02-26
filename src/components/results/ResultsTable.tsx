@@ -27,6 +27,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -154,7 +156,7 @@ export function ResultsTable({
                         {lead.isSaved && (
                           <Star className="h-3 w-3 text-amber-400 fill-amber-400 shrink-0" />
                         )}
-                        {lead.businessName || lead.contactPerson || "Sin nombre"}
+                        {lead.businessName || lead.contactPerson || lead.firstName || "Sin nombre"}
                       </p>
                       {lead.category && (
                         <p className="text-xs text-zinc-500">{lead.category}</p>

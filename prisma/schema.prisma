@@ -69,6 +69,8 @@ model Lead {
   source          String
   businessName    String?
   contactPerson   String?
+  firstName       String?
+  lastName        String?
   contactTitle    String?
   email           String?
   phone           String?

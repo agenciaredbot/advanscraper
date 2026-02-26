@@ -63,6 +63,8 @@ export async function POST(
       const leadContext: LeadContext = {
         businessName: lead.businessName,
         contactPerson: lead.contactPerson,
+        firstName: lead.firstName,
+        lastName: lead.lastName,
         contactTitle: lead.contactTitle,
         email: lead.email,
         phone: lead.phone,
@@ -98,7 +100,7 @@ export async function POST(
         messages.push({
           phone: lead.phone,
           message: messageBody,
-          leadName: lead.contactPerson || lead.businessName || undefined,
+          leadName: lead.firstName || lead.contactPerson || lead.businessName || undefined,
         });
 
         // Update campaign lead with message preview

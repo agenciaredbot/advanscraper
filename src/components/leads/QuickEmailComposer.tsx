@@ -19,6 +19,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -79,6 +81,8 @@ export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
           lead: {
             businessName: lead.businessName,
             contactPerson: lead.contactPerson,
+            firstName: lead.firstName,
+            lastName: lead.lastName,
             contactTitle: lead.contactTitle,
             email: lead.email,
             phone: lead.phone,

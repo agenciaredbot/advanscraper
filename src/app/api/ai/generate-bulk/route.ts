@@ -55,12 +55,12 @@ export async function POST(request: NextRequest) {
         );
 
         results.push({
-          lead: lead.contactPerson || lead.businessName || "Unknown",
+          lead: lead.firstName || lead.contactPerson || lead.businessName || "Unknown",
           message,
         });
       } catch (error) {
         results.push({
-          lead: lead.contactPerson || lead.businessName || "Unknown",
+          lead: lead.firstName || lead.contactPerson || lead.businessName || "Unknown",
           message: null,
           error: error instanceof Error ? error.message : "Error",
         });

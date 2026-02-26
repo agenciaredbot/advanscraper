@@ -5,6 +5,8 @@ import { humanDelay, longDelay } from "../shared/delays.js";
 
 export interface LinkedInResult {
   contactPerson: string;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   company: string | null;
   city: string | null;
@@ -201,6 +203,9 @@ function parseLinkedInSnippet(
   if (titleParts.length === 0) return null;
 
   const contactPerson = titleParts[0];
+  const nameParts = contactPerson.trim().split(/\s+/);
+  const firstName = nameParts[0] || null;
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
   const contactTitle = titleParts.length > 1 ? titleParts[1] : null;
   const company = titleParts.length > 2 ? titleParts[2] : null;
 
@@ -216,5 +221,5 @@ function parseLinkedInSnippet(
   // Clean up profile URL
   const profileUrl = url.split("?")[0];
 
-  return { contactPerson, contactTitle, company, city, profileUrl };
+  return { contactPerson, firstName, lastName, contactTitle, company, city, profileUrl };
 }

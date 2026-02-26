@@ -49,12 +49,15 @@ export async function POST(request: NextRequest) {
         // Single profile scrape
         const profile = await scrapeInstagramProfile(username);
         if (profile && profile.profileUrl) {
+          const nameParts = profile.fullName ? profile.fullName.trim().split(/\s+/) : [];
           const result = await prisma.lead.createMany({
             data: [{
               userId: user.id,
               searchId: search.id,
               source: "instagram",
               contactPerson: profile.fullName,
+              firstName: nameParts[0] || null,
+              lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : null,
               email: profile.email,
               phone: profile.phone,
               website: profile.website,
@@ -75,21 +78,26 @@ export async function POST(request: NextRequest) {
         const validProfiles = profiles.filter((p) => p.profileUrl);
         if (validProfiles.length > 0) {
           const result = await prisma.lead.createMany({
-            data: validProfiles.map((profile) => ({
-              userId: user.id,
-              searchId: search.id,
-              source: "instagram",
-              contactPerson: profile.fullName,
-              email: profile.email,
-              phone: profile.phone,
-              website: profile.website,
-              bio: profile.bio,
-              followers: profile.followers,
-              isBusiness: profile.isBusiness,
-              category: profile.category,
-              profileUrl: profile.profileUrl,
-              businessName: profile.isBusiness ? profile.fullName : null,
-            })),
+            data: validProfiles.map((profile) => {
+              const parts = profile.fullName ? profile.fullName.trim().split(/\s+/) : [];
+              return {
+                userId: user.id,
+                searchId: search.id,
+                source: "instagram",
+                contactPerson: profile.fullName,
+                firstName: parts[0] || null,
+                lastName: parts.length > 1 ? parts.slice(1).join(" ") : null,
+                email: profile.email,
+                phone: profile.phone,
+                website: profile.website,
+                bio: profile.bio,
+                followers: profile.followers,
+                isBusiness: profile.isBusiness,
+                category: profile.category,
+                profileUrl: profile.profileUrl,
+                businessName: profile.isBusiness ? profile.fullName : null,
+              };
+            }),
             skipDuplicates: true,
           });
           savedCount = result.count;

@@ -21,7 +21,7 @@ export async function GET(
           include: {
             lead: {
               select: {
-                id: true, businessName: true, contactPerson: true,
+                id: true, businessName: true, contactPerson: true, firstName: true, lastName: true,
                 email: true, phone: true, city: true,
               },
             },

@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 interface LeadInput {
   businessName?: string;
   contactPerson?: string;
+  firstName?: string;
+  lastName?: string;
   contactTitle?: string;
   email?: string;
   phone?: string;
@@ -25,9 +27,23 @@ function cleanStr(v: unknown): string | null {
 }
 
 function sanitizeLead(raw: LeadInput) {
+  // Auto-derive firstName/lastName from contactPerson if not provided
+  const contactPerson = cleanStr(raw.contactPerson);
+  let firstName = cleanStr(raw.firstName);
+  let lastName = cleanStr(raw.lastName);
+  if (!firstName && !lastName && contactPerson) {
+    const parts = contactPerson.trim().split(/\s+/);
+    firstName = parts[0] || null;
+    lastName = parts.length > 1 ? parts.slice(1).join(" ") : null;
+  }
+  // Auto-derive contactPerson from firstName + lastName if not provided
+  const derivedContactPerson = contactPerson || [firstName, lastName].filter(Boolean).join(" ") || null;
+
   return {
     businessName: cleanStr(raw.businessName),
-    contactPerson: cleanStr(raw.contactPerson),
+    contactPerson: derivedContactPerson,
+    firstName,
+    lastName,
     contactTitle: cleanStr(raw.contactTitle),
     email: cleanStr(raw.email),
     phone: cleanStr(raw.phone),
@@ -176,6 +192,8 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { businessName: { contains: search, mode: "insensitive" } },
         { contactPerson: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { category: { contains: search, mode: "insensitive" } },
       ];

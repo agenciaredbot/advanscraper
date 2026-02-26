@@ -1,6 +1,8 @@
 interface LeadForExport {
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   contactTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -18,7 +20,8 @@ interface LeadForExport {
 
 const CSV_HEADERS = [
   "Negocio",
-  "Contacto",
+  "Nombre",
+  "Apellido",
   "Título",
   "Email",
   "Teléfono",
@@ -49,7 +52,8 @@ export function generateCSV(leads: LeadForExport[]): string {
   for (const lead of leads) {
     const row = [
       escapeCSV(lead.businessName),
-      escapeCSV(lead.contactPerson),
+      escapeCSV(lead.firstName),
+      escapeCSV(lead.lastName),
       escapeCSV(lead.contactTitle),
       escapeCSV(lead.email),
       escapeCSV(lead.phone),

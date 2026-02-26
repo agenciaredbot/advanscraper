@@ -55,6 +55,8 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
         const leadContext: LeadContext = {
           businessName: lead.businessName,
           contactPerson: lead.contactPerson,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
           contactTitle: lead.contactTitle,
           email: lead.email,
           phone: lead.phone,
@@ -100,7 +102,7 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
         // Send email via Brevo
         const result = await sendEmailViaBrevo(
           {
-            to: { email: lead.email, name: lead.contactPerson || lead.businessName || undefined },
+            to: { email: lead.email, name: lead.firstName || lead.contactPerson || lead.businessName || undefined },
             subject,
             htmlContent: textToHtml(messageBody, {
               videoLink: campaign.includeVideo ? campaign.videoId || undefined : undefined,

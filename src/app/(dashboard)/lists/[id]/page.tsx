@@ -44,6 +44,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -357,6 +359,7 @@ export default function ListDetailPage() {
                         <p className="font-medium text-zinc-200">
                           {lead.businessName ||
                             lead.contactPerson ||
+                            lead.firstName ||
                             "Sin nombre"}
                         </p>
                         {lead.category && (

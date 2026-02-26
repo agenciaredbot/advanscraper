@@ -46,6 +46,8 @@ interface Lead {
   source: string;
   businessName: string | null;
   contactPerson: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   city: string | null;
@@ -65,6 +67,8 @@ interface OutreachLogEntry {
   lead: {
     businessName: string | null;
     contactPerson: string | null;
+    firstName: string | null;
+    lastName: string | null;
     email: string | null;
     profileUrl: string | null;
   };
@@ -155,6 +159,8 @@ export default function OutreachPage() {
           lead: {
             businessName: selectedLead.businessName,
             contactPerson: selectedLead.contactPerson,
+            firstName: selectedLead.firstName,
+            lastName: selectedLead.lastName,
             city: selectedLead.city,
             category: selectedLead.category,
             rating: selectedLead.rating,
@@ -322,7 +328,7 @@ export default function OutreachPage() {
                         }`}
                       >
                         <p className="text-sm text-zinc-200 truncate">
-                          {lead.contactPerson || lead.businessName || "Sin nombre"}
+                          {lead.firstName || lead.contactPerson || lead.businessName || "Sin nombre"}
                         </p>
                         <p className="text-xs text-zinc-500 truncate">
                           {lead.city || lead.category || lead.profileUrl || "—"}
@@ -348,7 +354,7 @@ export default function OutreachPage() {
                     {/* Selected lead info */}
                     <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-3">
                       <p className="text-sm font-medium text-zinc-200">
-                        {selectedLead.contactPerson || selectedLead.businessName}
+                        {selectedLead.firstName || selectedLead.contactPerson || selectedLead.businessName}
                       </p>
                       <p className="text-xs text-zinc-500">{selectedLead.city} · {selectedLead.category}</p>
                       {selectedLead.profileUrl && (
@@ -516,7 +522,7 @@ export default function OutreachPage() {
                             <TableRow key={log.id} className="border-zinc-800">
                               <TableCell>
                                 <p className="text-sm text-zinc-200">
-                                  {log.lead.contactPerson || log.lead.businessName || "—"}
+                                  {log.lead.firstName || log.lead.contactPerson || log.lead.businessName || "—"}
                                 </p>
                               </TableCell>
                               <TableCell>

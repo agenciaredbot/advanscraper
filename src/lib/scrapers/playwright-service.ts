@@ -30,6 +30,8 @@ export interface GoogleMapsResult {
 
 export interface LinkedInResult {
   contactPerson: string;
+  firstName?: string | null;
+  lastName?: string | null;
   contactTitle: string | null;
   company: string | null;
   city: string | null;
