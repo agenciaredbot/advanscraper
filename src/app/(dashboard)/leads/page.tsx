@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { LeadsTable } from "@/components/leads/LeadsTable";
 import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
+import { AddToListModal } from "@/components/lead-lists/AddToListModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Star, StarOff, Tag } from "lucide-react";
+import { Search, Loader2, Star, StarOff, Tag, ListFilter } from "lucide-react";
 import { toast } from "sonner";
 
 interface Lead {
@@ -72,6 +73,7 @@ export default function LeadsPage() {
   const [tags, setTags] = useState<TagItem[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [showAddToList, setShowAddToList] = useState(false);
 
   // Fetch tags for the filter dropdown
   const fetchTags = useCallback(async () => {
@@ -174,6 +176,15 @@ export default function LeadsPage() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setShowAddToList(true)}
+                className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <ListFilter className="mr-2 h-4 w-4" />
+                Agregar a Lista
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => toast.info("Asignar tags: proximamente")}
                 className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
               >
@@ -272,6 +283,13 @@ export default function LeadsPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onLeadUpdated={() => fetchLeads(pagination.page)}
+      />
+
+      {/* Add to List Modal */}
+      <AddToListModal
+        open={showAddToList}
+        onOpenChange={setShowAddToList}
+        leadIds={Array.from(selectedIds)}
       />
     </div>
   );
