@@ -89,10 +89,11 @@ export function generateLoomEmailEmbed(
         <img
           src="${thumbnailUrl}"
           alt="${title}"
-          style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;"
+          width="360"
+          style="max-width: 360px; width: 360px; border-radius: 8px; border: 1px solid #e5e7eb;"
         />
-        <p style="margin-top: 8px; color: #6b7280; font-size: 14px;">
-          Ver video: ${title}
+        <p style="margin-top: 6px; color: #6b7280; font-size: 13px;">
+          ▶ Ver video: ${title}
         </p>
       </a>
     </div>
