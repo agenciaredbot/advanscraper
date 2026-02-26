@@ -96,7 +96,9 @@ export async function POST(request: NextRequest) {
       // Use individual creates with try/catch to handle duplicates gracefully
       for (const rawLead of leads) {
         const data = sanitizeLead(rawLead);
-        if (!data.businessName && !data.contactPerson && !data.email && !data.phone) {
+        // Skip only completely empty rows (no field has any value)
+        const hasAnyField = Object.values(data).some((v) => v !== null);
+        if (!hasAnyField) {
           skipped++;
           continue;
         }

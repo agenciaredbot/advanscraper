@@ -27,6 +27,8 @@ import {
   AlertCircle,
   Mail,
   Phone,
+  Globe,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
@@ -127,10 +129,7 @@ function parseRows(
       });
       return lead;
     })
-    .filter(
-      (lead) =>
-        lead.businessName || lead.contactPerson || lead.email || lead.phone
-    );
+    .filter((lead) => Object.keys(lead).length > 0);
 }
 
 const CSV_TEMPLATE = `Negocio,Contacto,Email,Teléfono,Website,Dirección,Ciudad,Categoría
@@ -148,6 +147,7 @@ export function ImportLeadsModal({
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [skippedCount, setSkippedCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = useCallback(() => {
@@ -157,6 +157,7 @@ export function ImportLeadsModal({
     setFileName("");
     setImporting(false);
     setDragging(false);
+    setSkippedCount(0);
   }, []);
 
   const handleOpenChange = (open: boolean) => {
@@ -186,7 +187,10 @@ export function ImportLeadsModal({
             );
             return;
           }
-          const leads = parseRows(rows.slice(1), columnMapping);
+          const dataRows = rows.slice(1);
+          const leads = parseRows(dataRows, columnMapping);
+          const totalDataRows = dataRows.filter((r) => r.some((cell) => cell?.trim())).length;
+          setSkippedCount(totalDataRows - leads.length);
           setHeaders(fileHeaders);
           setParsedLeads(leads);
           setStep("preview");
@@ -217,10 +221,10 @@ export function ImportLeadsModal({
             );
             return;
           }
-          const leads = parseRows(
-            rows.slice(1).map((r) => r.map(String)),
-            columnMapping
-          );
+          const dataRows = rows.slice(1).map((r) => r.map(String));
+          const leads = parseRows(dataRows, columnMapping);
+          const totalDataRows = dataRows.filter((r) => r.some((cell) => cell?.trim())).length;
+          setSkippedCount(totalDataRows - leads.length);
           setHeaders(fileHeaders);
           setParsedLeads(leads);
           setStep("preview");
@@ -296,10 +300,11 @@ export function ImportLeadsModal({
 
   const withEmail = parsedLeads.filter((l) => l.email).length;
   const withPhone = parsedLeads.filter((l) => l.phone).length;
+  const withWebsite = parsedLeads.filter((l) => l.website).length;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl">
+      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-4xl">
         <DialogHeader>
           <DialogTitle className="text-zinc-100">
             {step === "upload" ? "Importar Contactos" : "Preview de Importación"}
@@ -360,7 +365,7 @@ export function ImportLeadsModal({
         {step === "preview" && (
           <div className="py-2 space-y-4">
             {/* Stats */}
-            <div className="flex gap-4 text-sm">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
               <span className="flex items-center gap-1.5 text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" />
                 {parsedLeads.length} contactos
@@ -371,8 +376,18 @@ export function ImportLeadsModal({
               </span>
               <span className="flex items-center gap-1.5 text-zinc-400">
                 <Phone className="h-3.5 w-3.5" />
-                {withPhone} con teléfono
+                {withPhone} con tel
               </span>
+              <span className="flex items-center gap-1.5 text-zinc-400">
+                <Globe className="h-3.5 w-3.5" />
+                {withWebsite} con web
+              </span>
+              {skippedCount > 0 && (
+                <span className="flex items-center gap-1.5 text-zinc-500">
+                  <XCircle className="h-3.5 w-3.5" />
+                  {skippedCount} filas vacías omitidas
+                </span>
+              )}
               {parsedLeads.length > 500 && (
                 <span className="flex items-center gap-1.5 text-amber-400">
                   <AlertCircle className="h-3.5 w-3.5" />
@@ -382,42 +397,54 @@ export function ImportLeadsModal({
             </div>
 
             {/* Preview table */}
-            <div className="rounded-lg border border-zinc-800 overflow-hidden max-h-[300px] overflow-y-auto">
+            <div className="rounded-lg border border-zinc-800 overflow-hidden max-h-[300px] overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400 text-xs">#</TableHead>
+                    <TableHead className="text-zinc-400 text-xs w-8">#</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Negocio</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Contacto</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Email</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Teléfono</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Website</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Ciudad</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Categoría</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {parsedLeads.slice(0, 10).map((lead, i) => (
                     <TableRow key={i} className="border-zinc-800">
                       <TableCell className="text-xs text-zinc-600">{i + 1}</TableCell>
-                      <TableCell className="text-xs text-zinc-300">
-                        {lead.businessName || "—"}
+                      <TableCell className="text-xs text-zinc-300 max-w-[140px] truncate">
+                        {lead.businessName || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.contactPerson || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[160px] truncate">
+                        {lead.email || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.phone || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.website ? (
+                          lead.website.replace(/^https?:\/\//, "").replace(/\/$/, "")
+                        ) : (
+                          <span className="text-zinc-700">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400">
-                        {lead.contactPerson || "—"}
+                        {lead.city || <span className="text-zinc-700">—</span>}
                       </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
-                        {lead.email || "—"}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
-                        {lead.phone || "—"}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
-                        {lead.city || "—"}
+                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
+                        {lead.category || <span className="text-zinc-700">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}
                   {parsedLeads.length > 10 && (
                     <TableRow className="border-zinc-800">
-                      <TableCell colSpan={6} className="text-center text-xs text-zinc-500 py-3">
+                      <TableCell colSpan={8} className="text-center text-xs text-zinc-500 py-3">
                         ... y {parsedLeads.length - 10} contactos más
                       </TableCell>
                     </TableRow>
