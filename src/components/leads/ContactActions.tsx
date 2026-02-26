@@ -31,6 +31,10 @@ interface Lead {
   isBusiness: boolean | null;
   bio: string | null;
   profileUrl: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;
@@ -62,7 +66,7 @@ interface ContactActionsProps {
 export function ContactActions({ lead, onEmailClick }: ContactActionsProps) {
   const profileUrl = lead.profileUrl || "";
   const isLinkedIn =
-    profileUrl.includes("linkedin.com") || lead.source === "linkedin";
+    profileUrl.includes("linkedin.com") || lead.source === "linkedin" || !!lead.linkedinUrl;
   const isInstagram =
     profileUrl.includes("instagram.com") || lead.source === "instagram";
   const isFacebook =
@@ -110,7 +114,7 @@ export function ContactActions({ lead, onEmailClick }: ContactActionsProps) {
           asChild
         >
           <a
-            href={profileUrl.includes("linkedin.com") ? profileUrl : "#"}
+            href={lead.linkedinUrl || (profileUrl.includes("linkedin.com") ? profileUrl : "#")}
             target="_blank"
             rel="noopener noreferrer"
           >

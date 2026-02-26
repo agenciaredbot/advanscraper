@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
             city: data.city || location || null,
             profileUrl: data.profileUrl,
             businessName: data.company,
+            linkedinUrl: data.profileUrl,
+            googleMapsUrl: null,
+            state: null,
+            industry: null,
           };
         }),
         skipDuplicates: true,

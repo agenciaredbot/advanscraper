@@ -44,6 +44,10 @@ const DEFAULT_SAMPLE_LEAD: LeadContext = {
   followers: 2300,
   bio: "El mejor sabor de Mexico",
   profileUrl: "https://instagram.com/elbuensabor",
+  state: "CDMX",
+  industry: "Gastronomía",
+  linkedinUrl: null,
+  googleMapsUrl: "https://maps.google.com/?cid=123456",
 };
 
 // -------------------------------------------------------------------
@@ -64,6 +68,11 @@ function replaceVariables(text: string, lead: LeadContext): string {
     .replace(/\{\{categoria\}\}/g, lead.category ?? "")
     .replace(/\{\{rating\}\}/g, lead.rating != null ? String(lead.rating) : "")
     .replace(/\{\{website\}\}/g, lead.website ?? "")
+    .replace(/\{\{apellido\}\}/g, lead.lastName ?? "")
+    .replace(/\{\{estado\}\}/g, lead.state ?? "")
+    .replace(/\{\{industria\}\}/g, lead.industry ?? "")
+    .replace(/\{\{linkedin\}\}/g, lead.linkedinUrl ?? "")
+    .replace(/\{\{google_maps\}\}/g, lead.googleMapsUrl ?? "")
     .replace(/\{\{video_link\}\}/g, "#video-link")
     .replace(/\{\{video_thumbnail\}\}/g, "#video-thumbnail");
 }

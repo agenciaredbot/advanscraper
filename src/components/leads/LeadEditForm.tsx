@@ -22,6 +22,10 @@ interface Lead {
   address: string | null;
   city: string | null;
   country: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   category: string | null;
   rating: number | null;
   reviewsCount: number | null;
@@ -69,6 +73,10 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
   const [city, setCity] = useState(lead.city || "");
   const [country, setCountry] = useState(lead.country || "");
   const [category, setCategory] = useState(lead.category || "");
+  const [state, setState] = useState(lead.state || "");
+  const [industry, setIndustry] = useState(lead.industry || "");
+  const [linkedinUrl, setLinkedinUrl] = useState(lead.linkedinUrl || "");
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(lead.googleMapsUrl || "");
   const [bio, setBio] = useState(lead.bio || "");
   const [saving, setSaving] = useState(false);
 
@@ -92,6 +100,10 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
           city: city || null,
           country: country || null,
           category: category || null,
+          state: state || null,
+          industry: industry || null,
+          linkedinUrl: linkedinUrl || null,
+          googleMapsUrl: googleMapsUrl || null,
           bio: bio || null,
         }),
       });
@@ -218,6 +230,17 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
           />
         </div>
 
+        {/* State */}
+        <div className="space-y-1.5">
+          <Label className="text-zinc-400 text-xs">Estado / Provincia</Label>
+          <Input
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            placeholder="Estado o provincia"
+            className={inputClassName}
+          />
+        </div>
+
         {/* Country */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Pais</Label>
@@ -236,6 +259,39 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="Restaurante, Agencia, etc."
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Industry */}
+        <div className="space-y-1.5">
+          <Label className="text-zinc-400 text-xs">Industria / Sector</Label>
+          <Input
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+            placeholder="Tecnologia, Salud, etc."
+            className={inputClassName}
+          />
+        </div>
+
+        {/* LinkedIn URL */}
+        <div className="space-y-1.5">
+          <Label className="text-zinc-400 text-xs">LinkedIn URL</Label>
+          <Input
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="https://linkedin.com/in/..."
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Google Maps URL */}
+        <div className="space-y-1.5">
+          <Label className="text-zinc-400 text-xs">Google Maps URL</Label>
+          <Input
+            value={googleMapsUrl}
+            onChange={(e) => setGoogleMapsUrl(e.target.value)}
+            placeholder="https://maps.google.com/..."
             className={inputClassName}
           />
         </div>

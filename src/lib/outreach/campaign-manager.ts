@@ -67,6 +67,10 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
           followers: lead.followers,
           bio: lead.bio,
           profileUrl: lead.profileUrl,
+          state: lead.state,
+          industry: lead.industry,
+          linkedinUrl: lead.linkedinUrl,
+          googleMapsUrl: lead.googleMapsUrl,
         };
 
         let messageBody: string;

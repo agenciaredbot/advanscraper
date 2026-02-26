@@ -14,6 +14,10 @@ interface LeadForExport {
   rating: number | null;
   reviewsCount: number | null;
   source: string;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   profileUrl: string | null;
   scrapedAt: Date | string;
 }
@@ -28,12 +32,16 @@ const CSV_HEADERS = [
   "Website",
   "Dirección",
   "Ciudad",
+  "Estado",
   "País",
   "Categoría",
+  "Industria",
   "Rating",
   "Reviews",
   "Fuente",
   "Perfil URL",
+  "LinkedIn URL",
+  "Google Maps URL",
   "Fecha Scraping",
 ];
 
@@ -60,12 +68,16 @@ export function generateCSV(leads: LeadForExport[]): string {
       escapeCSV(lead.website),
       escapeCSV(lead.address),
       escapeCSV(lead.city),
+      escapeCSV(lead.state),
       escapeCSV(lead.country),
       escapeCSV(lead.category),
+      escapeCSV(lead.industry),
       lead.rating?.toString() || "",
       lead.reviewsCount?.toString() || "",
       escapeCSV(lead.source),
       escapeCSV(lead.profileUrl),
+      escapeCSV(lead.linkedinUrl),
+      escapeCSV(lead.googleMapsUrl),
       lead.scrapedAt
         ? new Date(lead.scrapedAt).toISOString().split("T")[0]
         : "",

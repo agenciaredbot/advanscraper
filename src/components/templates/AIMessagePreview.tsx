@@ -32,6 +32,10 @@ const DEFAULT_LEAD: LeadContext = {
   city: "Ciudad de Mexico",
   category: "Restaurantes",
   rating: 4.5,
+  state: "CDMX",
+  industry: "Gastronomía",
+  linkedinUrl: null,
+  googleMapsUrl: "https://maps.google.com/?cid=123456",
 };
 
 // -------------------------------------------------------------------

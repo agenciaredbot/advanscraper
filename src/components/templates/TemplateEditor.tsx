@@ -56,6 +56,10 @@ const TEMPLATE_VARIABLES = [
   { key: "{{categoria}}", label: "Categoria", description: "category" },
   { key: "{{rating}}", label: "Rating", description: "rating" },
   { key: "{{website}}", label: "Website", description: "website" },
+  { key: "{{estado}}", label: "Estado", description: "state / provincia" },
+  { key: "{{industria}}", label: "Industria", description: "industry / sector" },
+  { key: "{{linkedin}}", label: "LinkedIn URL", description: "linkedinUrl" },
+  { key: "{{google_maps}}", label: "Google Maps URL", description: "googleMapsUrl" },
   { key: "{{video_link}}", label: "Video link", description: "URL del video" },
   { key: "{{video_thumbnail}}", label: "Video thumb", description: "Thumbnail del video" },
 ] as const;

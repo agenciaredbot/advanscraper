@@ -343,6 +343,10 @@ export interface NormalizedLead {
   isBusiness: boolean | null;
   bio: string | null;
   profileUrl: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
 }
 
 /** Split a full name into firstName and lastName */
@@ -377,6 +381,10 @@ export function normalizeGoogleMapsApify(
     isBusiness: true,
     bio: null,
     profileUrl: r.url,
+    state: null,
+    industry: r.categoryName || null,
+    linkedinUrl: null,
+    googleMapsUrl: r.url || null,
   }));
 }
 
@@ -404,6 +412,10 @@ export function normalizeLinkedInApify(
       isBusiness: null,
       bio: null,
       profileUrl: r.profileUrl,
+      state: null,
+      industry: null,
+      linkedinUrl: r.profileUrl || null,
+      googleMapsUrl: null,
     };
   });
 }
@@ -438,6 +450,10 @@ export function normalizeInstagramApify(
       isBusiness: r.isBusinessAccount,
       bio: r.biography,
       profileUrl: `https://instagram.com/${r.username}`,
+      state: null,
+      industry: null,
+      linkedinUrl: null,
+      googleMapsUrl: null,
     };
   });
 }
@@ -616,6 +632,10 @@ export function normalizeFacebookApify(
       isBusiness: true,
       bio: r.about,
       profileUrl: r.pageUrl,
+      state: null,
+      industry: r.categories?.[0] || null,
+      linkedinUrl: null,
+      googleMapsUrl: null,
     };
   });
 }

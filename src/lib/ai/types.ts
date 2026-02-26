@@ -13,6 +13,10 @@ export interface LeadContext {
   followers?: number | null;
   bio?: string | null;
   profileUrl?: string | null;
+  state?: string | null;
+  industry?: string | null;
+  linkedinUrl?: string | null;
+  googleMapsUrl?: string | null;
 }
 
 export interface GenerateMessageRequest {

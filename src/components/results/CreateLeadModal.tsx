@@ -27,12 +27,18 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
     businessName: "",
     firstName: "",
     lastName: "",
+    contactTitle: "",
     email: "",
     phone: "",
     website: "",
     address: "",
     city: "",
+    state: "",
+    country: "",
     category: "",
+    industry: "",
+    linkedinUrl: "",
+    googleMapsUrl: "",
   });
 
   const updateField = (field: string, value: string) => {
@@ -44,12 +50,18 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
       businessName: "",
       firstName: "",
       lastName: "",
+      contactTitle: "",
       email: "",
       phone: "",
       website: "",
       address: "",
       city: "",
+      state: "",
+      country: "",
       category: "",
+      industry: "",
+      linkedinUrl: "",
+      googleMapsUrl: "",
     });
   };
 
@@ -68,6 +80,12 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
           lead: {
             ...form,
             contactPerson: [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(" ") || null,
+            contactTitle: form.contactTitle || undefined,
+            state: form.state || undefined,
+            country: form.country || undefined,
+            industry: form.industry || undefined,
+            linkedinUrl: form.linkedinUrl || undefined,
+            googleMapsUrl: form.googleMapsUrl || undefined,
             source: "manual",
           },
         }),
@@ -139,6 +157,19 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
             </div>
           </div>
 
+          {/* Row: Cargo */}
+          <div className="space-y-1.5">
+            <Label className="text-zinc-300 text-xs flex items-center gap-1">
+              <User className="h-3 w-3" /> Cargo
+            </Label>
+            <Input
+              placeholder="Director, Gerente, CEO..."
+              value={form.contactTitle}
+              onChange={(e) => updateField("contactTitle", e.target.value)}
+              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+
           {/* Row 3: Email + Phone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -206,6 +237,32 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
             </div>
           </div>
 
+          {/* Row: Estado + País */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 text-xs flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Estado / Provincia
+              </Label>
+              <Input
+                placeholder="Antioquia, CDMX..."
+                value={form.state}
+                onChange={(e) => updateField("state", e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 text-xs flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> País
+              </Label>
+              <Input
+                placeholder="Colombia, México..."
+                value={form.country}
+                onChange={(e) => updateField("country", e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
+
           {/* Row 6: Category */}
           <div className="space-y-1.5">
             <Label className="text-zinc-300 text-xs flex items-center gap-1">
@@ -217,6 +274,45 @@ export function CreateLeadModal({ open, onOpenChange, onCreated }: CreateLeadMod
               onChange={(e) => updateField("category", e.target.value)}
               className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
             />
+          </div>
+
+          {/* Row: Industria / Sector */}
+          <div className="space-y-1.5">
+            <Label className="text-zinc-300 text-xs flex items-center gap-1">
+              <Tag className="h-3 w-3" /> Industria / Sector
+            </Label>
+            <Input
+              placeholder="Tecnología, Salud, Educación..."
+              value={form.industry}
+              onChange={(e) => updateField("industry", e.target.value)}
+              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+
+          {/* Row: LinkedIn URL + Google Maps URL */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 text-xs flex items-center gap-1">
+                <Globe className="h-3 w-3" /> LinkedIn URL
+              </Label>
+              <Input
+                placeholder="https://linkedin.com/in/..."
+                value={form.linkedinUrl}
+                onChange={(e) => updateField("linkedinUrl", e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 text-xs flex items-center gap-1">
+                <Globe className="h-3 w-3" /> Google Maps URL
+              </Label>
+              <Input
+                placeholder="https://maps.google.com/..."
+                value={form.googleMapsUrl}
+                onChange={(e) => updateField("googleMapsUrl", e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+              />
+            </div>
           </div>
         </div>
 

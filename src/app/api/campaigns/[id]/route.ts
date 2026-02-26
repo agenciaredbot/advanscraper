@@ -22,7 +22,7 @@ export async function GET(
             lead: {
               select: {
                 id: true, businessName: true, contactPerson: true, firstName: true, lastName: true,
-                email: true, phone: true, city: true,
+                email: true, phone: true, city: true, state: true, industry: true, linkedinUrl: true, googleMapsUrl: true,
               },
             },
           },

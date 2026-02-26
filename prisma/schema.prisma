@@ -77,14 +77,18 @@ model Lead {
   website         String?
   address         String?
   city            String?
+  state           String?
   country         String?
   category        String?
+  industry        String?
   rating          Float?
   reviewsCount    Int?
   followers       Int?
   isBusiness      Boolean?
   bio             String?
   profileUrl      String?
+  linkedinUrl     String?
+  googleMapsUrl   String?
   rawData         String?
   scrapedAt       DateTime  @default(now())
   isSaved         Boolean   @default(false)

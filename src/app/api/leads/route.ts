@@ -18,6 +18,10 @@ interface LeadInput {
   country?: string;
   category?: string;
   source?: string;
+  state?: string;
+  industry?: string;
+  linkedinUrl?: string;
+  googleMapsUrl?: string;
 }
 
 function cleanStr(v: unknown): string | null {
@@ -52,6 +56,10 @@ function sanitizeLead(raw: LeadInput) {
     city: cleanStr(raw.city),
     country: cleanStr(raw.country),
     category: cleanStr(raw.category),
+    state: cleanStr(raw.state),
+    industry: cleanStr(raw.industry),
+    linkedinUrl: cleanStr(raw.linkedinUrl),
+    googleMapsUrl: cleanStr(raw.googleMapsUrl),
   };
 }
 
@@ -196,6 +204,7 @@ export async function GET(request: NextRequest) {
         { lastName: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { category: { contains: search, mode: "insensitive" } },
+        { industry: { contains: search, mode: "insensitive" } },
       ];
     }
 

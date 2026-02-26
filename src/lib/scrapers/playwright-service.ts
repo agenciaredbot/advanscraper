@@ -36,6 +36,7 @@ export interface LinkedInResult {
   company: string | null;
   city: string | null;
   profileUrl: string;
+  industry?: string | null;
 }
 
 /**

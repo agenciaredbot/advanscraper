@@ -40,6 +40,10 @@ interface Lead {
   contactTitle: string | null;
   country: string | null;
   followers: number | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;
@@ -180,6 +184,9 @@ export function LeadsTable({
                       )}
                       {lead.category && (
                         <p className="text-xs text-zinc-500">{lead.category}</p>
+                      )}
+                      {lead.industry && (
+                        <p className="text-xs text-zinc-600">{lead.industry}</p>
                       )}
                       {lead.tags && lead.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">

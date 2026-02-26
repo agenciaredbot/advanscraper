@@ -44,6 +44,10 @@ interface Lead {
   isBusiness: boolean | null;
   bio: string | null;
   profileUrl: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;

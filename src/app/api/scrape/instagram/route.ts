@@ -67,6 +67,10 @@ export async function POST(request: NextRequest) {
               category: profile.category,
               profileUrl: profile.profileUrl,
               businessName: profile.isBusiness ? profile.fullName : null,
+              linkedinUrl: null,
+              googleMapsUrl: null,
+              state: null,
+              industry: null,
             }],
             skipDuplicates: true,
           });
@@ -96,6 +100,10 @@ export async function POST(request: NextRequest) {
                 category: profile.category,
                 profileUrl: profile.profileUrl,
                 businessName: profile.isBusiness ? profile.fullName : null,
+                linkedinUrl: null,
+                googleMapsUrl: null,
+                state: null,
+                industry: null,
               };
             }),
             skipDuplicates: true,

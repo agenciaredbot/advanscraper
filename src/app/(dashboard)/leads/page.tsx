@@ -36,6 +36,10 @@ interface Lead {
   contactTitle: string | null;
   country: string | null;
   followers: number | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;

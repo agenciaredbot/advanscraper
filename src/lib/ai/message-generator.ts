@@ -13,7 +13,9 @@ function buildLeadContext(lead: LeadContext): string {
   if (lead.businessName) parts.push(`Negocio: ${lead.businessName}`);
   if (lead.contactTitle) parts.push(`Título: ${lead.contactTitle}`);
   if (lead.category) parts.push(`Categoría: ${lead.category}`);
+  if (lead.industry) parts.push(`Industria: ${lead.industry}`);
   if (lead.city) parts.push(`Ciudad: ${lead.city}`);
+  if (lead.state) parts.push(`Estado: ${lead.state}`);
   if (lead.email) parts.push(`Email: ${lead.email}`);
   if (lead.website) parts.push(`Website: ${lead.website}`);
   if (lead.rating) parts.push(`Rating: ${lead.rating}/5`);
@@ -146,6 +148,10 @@ export function replacePlaceholders(template: string, lead: LeadContext): string
     "{{bio}}": lead.bio || "",
     "{{seguidores}}": lead.followers?.toString() || "",
     "{{perfil}}": lead.profileUrl || "",
+    "{{estado}}": lead.state || "",
+    "{{industria}}": lead.industry || "tu industria",
+    "{{linkedin}}": lead.linkedinUrl || "",
+    "{{google_maps}}": lead.googleMapsUrl || "",
   };
 
   let result = template;

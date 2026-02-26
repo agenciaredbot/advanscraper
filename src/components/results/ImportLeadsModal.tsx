@@ -55,12 +55,18 @@ interface ParsedLead {
   contactPerson?: string;
   firstName?: string;
   lastName?: string;
+  contactTitle?: string;
   email?: string;
   phone?: string;
   website?: string;
   address?: string;
   city?: string;
+  state?: string;
+  country?: string;
   category?: string;
+  industry?: string;
+  linkedinUrl?: string;
+  googleMapsUrl?: string;
 }
 
 type LeadField = keyof ParsedLead;
@@ -71,12 +77,18 @@ const FIELD_OPTIONS: Array<{ value: LeadField | "skip"; label: string }> = [
   { value: "businessName", label: "Negocio" },
   { value: "firstName", label: "Nombre" },
   { value: "lastName", label: "Apellido" },
+  { value: "contactTitle", label: "Cargo" },
   { value: "email", label: "Email" },
   { value: "phone", label: "Teléfono" },
   { value: "website", label: "Website" },
   { value: "address", label: "Dirección" },
   { value: "city", label: "Ciudad" },
+  { value: "state", label: "Estado / Provincia" },
+  { value: "country", label: "País" },
   { value: "category", label: "Categoría" },
+  { value: "industry", label: "Industria / Sector" },
+  { value: "linkedinUrl", label: "LinkedIn URL" },
+  { value: "googleMapsUrl", label: "Google Maps URL" },
 ];
 
 // Column name mapping (Spanish + English variants → field name)
@@ -104,6 +116,13 @@ const COLUMN_MAP: Record<string, LeadField> = {
   "last name": "lastName",
   lastname: "lastName",
   surname: "lastName",
+  // Contact title / Position
+  cargo: "contactTitle",
+  titulo: "contactTitle",
+  title: "contactTitle",
+  "job title": "contactTitle",
+  puesto: "contactTitle",
+  position: "contactTitle",
   // Email
   email: "email",
   correo: "email",
@@ -133,12 +152,35 @@ const COLUMN_MAP: Record<string, LeadField> = {
   // City
   ciudad: "city",
   city: "city",
+  // State / Province
+  estado: "state",
+  state: "state",
+  provincia: "state",
+  departamento: "state",
+  region: "state",
+  // Country
+  pais: "country",
+  "país": "country",
+  country: "country",
   // Category
   categoría: "category",
   categoria: "category",
   category: "category",
   rubro: "category",
-  sector: "category",
+  // Industry / Sector
+  industria: "industry",
+  industry: "industry",
+  sector: "industry",
+  // LinkedIn
+  linkedin: "linkedinUrl",
+  "linkedin url": "linkedinUrl",
+  "url linkedin": "linkedinUrl",
+  "perfil linkedin": "linkedinUrl",
+  // Google Maps
+  "google maps": "googleMapsUrl",
+  "maps url": "googleMapsUrl",
+  "url maps": "googleMapsUrl",
+  "google maps url": "googleMapsUrl",
 };
 
 function autoMapColumns(
@@ -174,9 +216,9 @@ function parseRowsWithMapping(
     .filter((lead) => Object.keys(lead).length > 0);
 }
 
-const CSV_TEMPLATE = `Negocio,Nombre,Apellido,Email,Teléfono,Website,Dirección,Ciudad,Categoría
-Restaurante El Buen Sabor,Juan,Pérez,juan@buensabor.com,+57 300 111 2222,https://buensabor.com,Calle 10 #5-20,Bogotá,Restaurante
-Dentista Sonrisa,María,López,info@sonrisa.co,+57 310 333 4444,https://sonrisa.co,Carrera 7 #45-10,Medellín,Dentista`;
+const CSV_TEMPLATE = `Negocio,Nombre,Apellido,Cargo,Email,Teléfono,Website,Dirección,Ciudad,Estado,País,Categoría,Industria,LinkedIn URL,Google Maps URL
+Restaurante El Buen Sabor,Juan,Pérez,Gerente General,juan@buensabor.com,+57 300 111 2222,https://buensabor.com,Calle 10 #5-20,Bogotá,Cundinamarca,Colombia,Restaurante,Gastronomía,https://linkedin.com/in/juanperez,https://maps.google.com/?cid=123456
+Dentista Sonrisa,María,López,Directora Clínica,info@sonrisa.co,+57 310 333 4444,https://sonrisa.co,Carrera 7 #45-10,Medellín,Antioquia,Colombia,Dentista,Salud,https://linkedin.com/in/marialopez,https://maps.google.com/?cid=789012`;
 
 export function ImportLeadsModal({
   open,
@@ -575,11 +617,17 @@ export function ImportLeadsModal({
                     <TableHead className="text-zinc-400 text-xs">Negocio</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Nombre</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Apellido</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Cargo</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Email</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Teléfono</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Website</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Ciudad</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Estado</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">País</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Categoría</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Industria</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">LinkedIn</TableHead>
+                    <TableHead className="text-zinc-400 text-xs">Maps</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -594,6 +642,9 @@ export function ImportLeadsModal({
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
                         {lead.lastName || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.contactTitle || <span className="text-zinc-700">—</span>}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[160px] truncate">
                         {lead.email || <span className="text-zinc-700">—</span>}
@@ -611,14 +662,33 @@ export function ImportLeadsModal({
                       <TableCell className="text-xs text-zinc-400">
                         {lead.city || <span className="text-zinc-700">—</span>}
                       </TableCell>
+                      <TableCell className="text-xs text-zinc-400">
+                        {lead.state || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400">
+                        {lead.country || <span className="text-zinc-700">—</span>}
+                      </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
                         {lead.category || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
+                        {lead.industry || <span className="text-zinc-700">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                        {lead.linkedinUrl ? (
+                          lead.linkedinUrl.replace(/^https?:\/\/(www\.)?linkedin\.com\//, "")
+                        ) : (
+                          <span className="text-zinc-700">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
+                        {lead.googleMapsUrl ? "Ver mapa" : <span className="text-zinc-700">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}
                   {parsedLeads.length > 10 && (
                     <TableRow className="border-zinc-800">
-                      <TableCell colSpan={9} className="text-center text-xs text-zinc-500 py-3">
+                      <TableCell colSpan={15} className="text-center text-xs text-zinc-500 py-3">
                         ... y {parsedLeads.length - 10} contactos más
                       </TableCell>
                     </TableRow>

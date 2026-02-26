@@ -46,6 +46,10 @@ interface Lead {
   isBusiness: boolean | null;
   bio: string | null;
   profileUrl: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;
@@ -238,6 +242,7 @@ export function LeadDetailSheet({
                     </div>
                     <p className="text-sm text-zinc-200 truncate">
                       {lead.city}
+                      {lead.state ? `, ${lead.state}` : ""}
                       {lead.country ? `, ${lead.country}` : ""}
                     </p>
                   </div>
@@ -295,6 +300,51 @@ export function LeadDetailSheet({
                       {lead.website
                         .replace(/^https?:\/\//, "")
                         .replace(/\/$/, "")}
+                    </a>
+                  </div>
+                )}
+                {lead.industry && (
+                  <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
+                      <Tag className="h-3 w-3" />
+                      Industria
+                    </div>
+                    <p className="text-sm text-zinc-200 truncate">
+                      {lead.industry}
+                    </p>
+                  </div>
+                )}
+                {lead.linkedinUrl && (
+                  <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
+                      <ExternalLink className="h-3 w-3" />
+                      LinkedIn
+                    </div>
+                    <a
+                      href={lead.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-400 hover:text-blue-300 hover:underline truncate block"
+                    >
+                      {lead.linkedinUrl
+                        .replace(/^https?:\/\//, "")
+                        .replace(/\/$/, "")}
+                    </a>
+                  </div>
+                )}
+                {lead.googleMapsUrl && (
+                  <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
+                      <MapPin className="h-3 w-3" />
+                      Google Maps
+                    </div>
+                    <a
+                      href={lead.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-emerald-400 hover:text-emerald-300 hover:underline truncate block"
+                    >
+                      Ver en Google Maps
                     </a>
                   </div>
                 )}

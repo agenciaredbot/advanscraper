@@ -35,6 +35,10 @@ interface Lead {
   isBusiness: boolean | null;
   bio: string | null;
   profileUrl: string | null;
+  state: string | null;
+  industry: string | null;
+  linkedinUrl: string | null;
+  googleMapsUrl: string | null;
   isSaved: boolean;
   savedAt: string | null;
   scrapedAt: string;
@@ -93,6 +97,10 @@ export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
             followers: lead.followers,
             bio: lead.bio,
             profileUrl: lead.profileUrl,
+            state: lead.state,
+            industry: lead.industry,
+            linkedinUrl: lead.linkedinUrl,
+            googleMapsUrl: lead.googleMapsUrl,
           },
         }),
       });

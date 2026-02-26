@@ -94,6 +94,7 @@ export async function PATCH(
     const allowedFields = [
       "businessName", "contactPerson", "firstName", "lastName", "contactTitle", "email", "phone",
       "website", "address", "city", "country", "category", "bio", "profileUrl",
+      "state", "industry", "linkedinUrl", "googleMapsUrl",
     ] as const;
 
     const data: Record<string, string | null> = {};
