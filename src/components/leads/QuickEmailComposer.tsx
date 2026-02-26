@@ -11,6 +11,9 @@ import {
   Sparkles,
   ExternalLink,
   Mail,
+  Video,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,11 +70,26 @@ interface QuickEmailComposerProps {
   onSent?: () => void;
 }
 
+// Extract Loom video ID from share URL or embed code
+function extractLoomId(input: string): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  const embedMatch = trimmed.match(/loom\.com\/embed\/([a-zA-Z0-9]+)/);
+  if (embedMatch) return embedMatch[1];
+  const shareMatch = trimmed.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
+  if (shareMatch) return shareMatch[1];
+  return null;
+}
+
 export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [loomInput, setLoomInput] = useState("");
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  const loomVideoId = extractLoomId(loomInput);
+  const loomShareUrl = loomVideoId ? `https://www.loom.com/share/${loomVideoId}` : null;
 
   const handleGenerateAI = async () => {
     setGenerating(true);
@@ -138,6 +156,7 @@ export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
         body: JSON.stringify({
           subject: subject.trim(),
           message: message.trim(),
+          ...(loomShareUrl && { loomUrl: loomShareUrl }),
         }),
       });
 
@@ -149,6 +168,7 @@ export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
       toast.success("Email enviado exitosamente");
       setSubject("");
       setMessage("");
+      setLoomInput("");
       onSent?.();
     } catch (err) {
       toast.error(
@@ -195,6 +215,48 @@ export function QuickEmailComposer({ lead, onSent }: QuickEmailComposerProps) {
           className={`${inputClassName} min-h-[120px] resize-none`}
           rows={4}
         />
+      </div>
+
+      {/* Loom Video (optional) */}
+      <div className="space-y-1.5">
+        <Label className="text-zinc-400 text-xs flex items-center gap-1.5">
+          <Video className="h-3.5 w-3.5" />
+          Video de Loom
+          <span className="text-zinc-600">(opcional)</span>
+        </Label>
+        <div className="relative">
+          <Input
+            value={loomInput}
+            onChange={(e) => setLoomInput(e.target.value)}
+            placeholder="Pega URL de Loom o código embed..."
+            className={`${inputClassName} pr-8`}
+          />
+          {loomInput && (
+            <button
+              type="button"
+              onClick={() => setLoomInput("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {loomInput && (
+          <div className="flex items-center gap-1.5 text-xs">
+            {loomVideoId ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-emerald-400">Video detectado</span>
+                <span className="text-zinc-600">— se incluirá como preview en el email</span>
+              </>
+            ) : (
+              <>
+                <X className="h-3.5 w-3.5 text-red-400" />
+                <span className="text-red-400">URL de Loom no válida</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

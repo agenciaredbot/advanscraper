@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
 import { sendEmailViaBrevo, textToHtml } from "@/lib/outreach/brevo-email";
+import { extractLoomVideoId, buildLoomShareUrl, getLoomVideoMeta, generateLoomEmailEmbed } from "@/lib/outreach/loom";
 
 // POST — Send email to a lead via Brevo
 export async function POST(
@@ -19,10 +20,11 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { subject, message, senderName } = (await request.json()) as {
+    const { subject, message, senderName, loomUrl } = (await request.json()) as {
       subject?: string;
       message?: string;
       senderName?: string;
+      loomUrl?: string;
     };
 
     if (!subject || !message) {
@@ -57,8 +59,20 @@ export async function POST(
       select: { brevoApiKey: true },
     });
 
-    // Send email
-    const htmlContent = textToHtml(message);
+    // Build HTML content (with optional Loom video embed)
+    let htmlContent = textToHtml(message);
+
+    if (loomUrl) {
+      const videoId = extractLoomVideoId(loomUrl);
+      if (videoId) {
+        const shareUrl = buildLoomShareUrl(videoId);
+        const meta = await getLoomVideoMeta(shareUrl);
+        if (meta) {
+          htmlContent += generateLoomEmailEmbed(shareUrl, meta.thumbnailUrl, meta.title);
+        }
+      }
+    }
+
     const result = await sendEmailViaBrevo(
       {
         to: {
