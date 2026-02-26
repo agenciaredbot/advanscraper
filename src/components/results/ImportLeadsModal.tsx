@@ -373,6 +373,7 @@ export function ImportLeadsModal({
 
     if (ext === "csv" || ext === "tsv" || ext === "txt") {
       Papa.parse(file, {
+        skipEmptyLines: true,
         complete: (results) => {
           handleParsedRows(results.data as string[][]);
         },
@@ -390,7 +391,11 @@ export function ImportLeadsModal({
           const rows: string[][] = XLSX.utils.sheet_to_json(firstSheet, {
             header: 1,
           });
-          handleParsedRows(rows.map((r) => r.map(String)));
+          // Filter out completely empty rows from Excel
+          const nonEmptyRows = rows
+            .map((r) => r.map(String))
+            .filter((r) => r.some((cell) => cell && cell.trim() && cell !== "undefined"));
+          handleParsedRows(nonEmptyRows);
         } catch {
           toast.error("Error al leer el archivo Excel");
         }
@@ -444,25 +449,29 @@ export function ImportLeadsModal({
 
     setImporting(true);
     try {
+      // Limit to 500 max (API constraint)
+      const leadsToSend = parsedLeads
+        .slice(0, 500)
+        .map((l) => ({ ...l, source: "csv_import" }));
+
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leads: parsedLeads.map((l) => ({ ...l, source: "csv_import" })),
-        }),
+        body: JSON.stringify({ leads: leadsToSend }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Error al importar");
+        throw new Error(data.error || `Error del servidor (${res.status})`);
       }
 
-      const result = await res.json();
-      toast.success(result.message || `${result.created} leads importados`);
+      toast.success(data.message || `${data.created} leads importados`);
       handleOpenChange(false);
       onImported?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al importar");
+      console.error("Import error:", err);
+      toast.error(err instanceof Error ? err.message : "Error al importar leads");
     } finally {
       setImporting(false);
     }

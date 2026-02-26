@@ -116,31 +116,36 @@ export async function POST(request: NextRequest) {
       }
 
       const source = cleanStr(leads[0]?.source) || "csv_import";
-      let created = 0;
-      let skipped = 0;
 
-      // Use individual creates with try/catch to handle duplicates gracefully
-      for (const rawLead of leads) {
-        const data = sanitizeLead(rawLead);
-        // Skip only completely empty rows (no field has any value)
-        const hasAnyField = Object.values(data).some((v) => v !== null);
-        if (!hasAnyField) {
-          skipped++;
-          continue;
-        }
-        try {
-          await prisma.lead.create({
-            data: {
-              userId: user.id,
-              source,
-              ...data,
-            },
-          });
-          created++;
-        } catch {
-          skipped++; // Duplicate or validation error
-        }
+      // Sanitize all leads and filter out empty rows
+      const validLeads = leads
+        .map((rawLead) => {
+          const data = sanitizeLead(rawLead);
+          const hasAnyField = Object.values(data).some((v) => v !== null);
+          return hasAnyField ? { userId: user.id, source, ...data } : null;
+        })
+        .filter((d): d is NonNullable<typeof d> => d !== null);
+
+      const skippedEmpty = leads.length - validLeads.length;
+
+      if (validLeads.length === 0) {
+        return NextResponse.json({
+          success: true,
+          created: 0,
+          skipped: leads.length,
+          total: leads.length,
+          message: "No se encontraron datos válidos para importar",
+        });
       }
+
+      // Use createMany with skipDuplicates for much faster bulk insert
+      const result = await prisma.lead.createMany({
+        data: validLeads,
+        skipDuplicates: true,
+      });
+
+      const created = result.count;
+      const skipped = skippedEmpty + (validLeads.length - created);
 
       return NextResponse.json({
         success: true,
