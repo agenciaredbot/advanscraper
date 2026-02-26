@@ -65,6 +65,7 @@ interface ParsedLead {
   country?: string;
   category?: string;
   industry?: string;
+  profileUrl?: string;
   linkedinUrl?: string;
   googleMapsUrl?: string;
 }
@@ -87,49 +88,69 @@ const FIELD_OPTIONS: Array<{ value: LeadField | "skip"; label: string }> = [
   { value: "country", label: "País" },
   { value: "category", label: "Categoría" },
   { value: "industry", label: "Industria / Sector" },
+  { value: "profileUrl", label: "URL de Perfil" },
   { value: "linkedinUrl", label: "LinkedIn URL" },
   { value: "googleMapsUrl", label: "Google Maps URL" },
 ];
 
-// Column name mapping (Spanish + English variants → field name)
+// Column name mapping (Spanish + English + snake_case + compound variants → field name)
 const COLUMN_MAP: Record<string, LeadField> = {
   // Business name
   negocio: "businessName",
   empresa: "businessName",
   "nombre del negocio": "businessName",
   "nombre empresa": "businessName",
+  nombre_empresa: "businessName",
   business: "businessName",
   "business name": "businessName",
+  business_name: "businessName",
   company: "businessName",
+  company_name: "businessName",
+  "company name": "businessName",
   nombre: "firstName",
   // Contact person / First name
   contacto: "firstName",
   "persona de contacto": "firstName",
   "contact person": "firstName",
+  contact_person: "firstName",
   contact: "firstName",
   persona: "firstName",
   "first name": "firstName",
+  first_name: "firstName",
   firstname: "firstName",
   "nombre de pila": "firstName",
+  nombre_de_pila: "firstName",
+  contact_first_name: "firstName",
   // Last name
   apellido: "lastName",
   "last name": "lastName",
+  last_name: "lastName",
   lastname: "lastName",
   surname: "lastName",
+  contact_last_name: "lastName",
   // Contact title / Position
   cargo: "contactTitle",
   titulo: "contactTitle",
+  título: "contactTitle",
   title: "contactTitle",
   "job title": "contactTitle",
+  job_title: "contactTitle",
   puesto: "contactTitle",
   position: "contactTitle",
+  contact_title: "contactTitle",
+  titulo_cargo: "contactTitle",
+  headline: "contactTitle",
   // Email
   email: "email",
   correo: "email",
   "correo electrónico": "email",
   "correo electronico": "email",
+  correo_electronico: "email",
   "e-mail": "email",
   mail: "email",
+  email_address: "email",
+  "email address": "email",
+  contact_email: "email",
   // Phone
   teléfono: "phone",
   telefono: "phone",
@@ -138,57 +159,133 @@ const COLUMN_MAP: Record<string, LeadField> = {
   celular: "phone",
   móvil: "phone",
   movil: "phone",
+  phone_number: "phone",
+  "phone number": "phone",
+  phone_no: "phone",
+  numero_telefono: "phone",
+  contact_phone: "phone",
+  mobile: "phone",
   // Website
   website: "website",
   web: "website",
   "sitio web": "website",
+  sitio_web: "website",
   url: "website",
   página: "website",
   pagina: "website",
+  site_url: "website",
+  web_url: "website",
+  homepage: "website",
+  pagina_web: "website",
+  company_website: "website",
   // Address
   dirección: "address",
   direccion: "address",
   address: "address",
+  street_address: "address",
+  "street address": "address",
+  full_address: "address",
+  "full address": "address",
+  company_street_address: "address",
+  company_full_address: "address",
+  company_address: "address",
+  direccion_empresa: "address",
   // City
   ciudad: "city",
   city: "city",
+  company_city: "city",
   // State / Province
   estado: "state",
   state: "state",
   provincia: "state",
   departamento: "state",
   region: "state",
+  company_state: "state",
   // Country
   pais: "country",
   "país": "country",
   country: "country",
+  company_country: "country",
   // Category
   categoría: "category",
   categoria: "category",
   category: "category",
   rubro: "category",
+  company_category: "category",
+  tipo_negocio: "category",
   // Industry / Sector
   industria: "industry",
   industry: "industry",
   sector: "industry",
+  company_industry: "industry",
+  sector_industrial: "industry",
+  // Profile URL
+  profile_url: "profileUrl",
+  "profile url": "profileUrl",
+  perfil_url: "profileUrl",
+  url_perfil: "profileUrl",
+  perfil: "profileUrl",
   // LinkedIn
   linkedin: "linkedinUrl",
   "linkedin url": "linkedinUrl",
+  linkedin_url: "linkedinUrl",
   "url linkedin": "linkedinUrl",
   "perfil linkedin": "linkedinUrl",
+  linkedin_profile: "linkedinUrl",
+  company_linkedin: "linkedinUrl",
+  "linkedin profile": "linkedinUrl",
   // Google Maps
   "google maps": "googleMapsUrl",
   "maps url": "googleMapsUrl",
   "url maps": "googleMapsUrl",
   "google maps url": "googleMapsUrl",
+  google_maps_url: "googleMapsUrl",
+  maps_link: "googleMapsUrl",
+  google_maps_link: "googleMapsUrl",
+  company_google_maps: "googleMapsUrl",
 };
+
+// Fuzzy partial matching rules (checked if exact map fails)
+const FUZZY_RULES: Array<{ pattern: RegExp; field: LeadField }> = [
+  { pattern: /e[-_]?mail/i, field: "email" },
+  { pattern: /phone|telefono|teléfono|celular|mobile/i, field: "phone" },
+  { pattern: /linkedin/i, field: "linkedinUrl" },
+  { pattern: /google.?map/i, field: "googleMapsUrl" },
+  { pattern: /street|address|direcci[oó]n/i, field: "address" },
+  { pattern: /\bcity\b|ciudad/i, field: "city" },
+  { pattern: /\bstate\b|estado|provincia/i, field: "state" },
+  { pattern: /country|pa[ií]s/i, field: "country" },
+  { pattern: /industr|industria/i, field: "industry" },
+  { pattern: /categor/i, field: "category" },
+  { pattern: /website|sitio.?web|homepage/i, field: "website" },
+  { pattern: /first.?name|nombre.?pila/i, field: "firstName" },
+  { pattern: /last.?name|apellido|surname/i, field: "lastName" },
+  { pattern: /\btitle\b|cargo|puesto|headline|position/i, field: "contactTitle" },
+  { pattern: /company.?name|business.?name|empresa|negocio/i, field: "businessName" },
+  { pattern: /profile.?url|perfil.?url/i, field: "profileUrl" },
+];
 
 function autoMapColumns(
   headers: string[]
 ): Array<LeadField | "skip"> {
+  const used = new Set<LeadField>();
   return headers.map((header) => {
-    const normalized = header.toLowerCase().trim();
-    return COLUMN_MAP[normalized] || "skip";
+    const normalized = header.toLowerCase().trim().replace(/\s+/g, " ");
+    // 1. Exact match
+    const exact = COLUMN_MAP[normalized];
+    if (exact && !used.has(exact)) { used.add(exact); return exact; }
+    // Also try replacing spaces with underscores
+    const underscored = normalized.replace(/ /g, "_");
+    const exactU = COLUMN_MAP[underscored];
+    if (exactU && !used.has(exactU)) { used.add(exactU); return exactU; }
+    // 2. Fuzzy partial match
+    for (const rule of FUZZY_RULES) {
+      if (rule.pattern.test(normalized) && !used.has(rule.field)) {
+        used.add(rule.field);
+        return rule.field;
+      }
+    }
+    return "skip";
   });
 }
 
@@ -608,7 +705,7 @@ export function ImportLeadsModal({
               )}
             </div>
 
-            {/* Preview table */}
+            {/* Preview table — only essential columns for quick validation */}
             <div className="rounded-lg border border-zinc-800 overflow-hidden max-h-[300px] overflow-auto">
               <Table>
                 <TableHeader>
@@ -617,24 +714,17 @@ export function ImportLeadsModal({
                     <TableHead className="text-zinc-400 text-xs">Negocio</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Nombre</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Apellido</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Cargo</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Email</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Teléfono</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Website</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Ciudad</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Estado</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">País</TableHead>
                     <TableHead className="text-zinc-400 text-xs">Categoría</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Industria</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">LinkedIn</TableHead>
-                    <TableHead className="text-zinc-400 text-xs">Maps</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {parsedLeads.slice(0, 10).map((lead, i) => (
                     <TableRow key={i} className="border-zinc-800">
                       <TableCell className="text-xs text-zinc-600">{i + 1}</TableCell>
-                      <TableCell className="text-xs text-zinc-300 max-w-[140px] truncate">
+                      <TableCell className="text-xs text-zinc-300 max-w-[160px] truncate">
                         {lead.businessName || <span className="text-zinc-700">—</span>}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
@@ -643,52 +733,23 @@ export function ImportLeadsModal({
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
                         {lead.lastName || <span className="text-zinc-700">—</span>}
                       </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
-                        {lead.contactTitle || <span className="text-zinc-700">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[160px] truncate">
+                      <TableCell className="text-xs text-zinc-400 max-w-[180px] truncate">
                         {lead.email || <span className="text-zinc-700">—</span>}
                       </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
+                      <TableCell className="text-xs text-zinc-400 max-w-[130px] truncate">
                         {lead.phone || <span className="text-zinc-700">—</span>}
                       </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
-                        {lead.website ? (
-                          lead.website.replace(/^https?:\/\//, "").replace(/\/$/, "")
-                        ) : (
-                          <span className="text-zinc-700">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
                         {lead.city || <span className="text-zinc-700">—</span>}
                       </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
-                        {lead.state || <span className="text-zinc-700">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400">
-                        {lead.country || <span className="text-zinc-700">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
-                        {lead.category || <span className="text-zinc-700">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
-                        {lead.industry || <span className="text-zinc-700">—</span>}
-                      </TableCell>
                       <TableCell className="text-xs text-zinc-400 max-w-[120px] truncate">
-                        {lead.linkedinUrl ? (
-                          lead.linkedinUrl.replace(/^https?:\/\/(www\.)?linkedin\.com\//, "")
-                        ) : (
-                          <span className="text-zinc-700">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-zinc-400 max-w-[100px] truncate">
-                        {lead.googleMapsUrl ? "Ver mapa" : <span className="text-zinc-700">—</span>}
+                        {lead.category || lead.industry || <span className="text-zinc-700">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}
                   {parsedLeads.length > 10 && (
                     <TableRow className="border-zinc-800">
-                      <TableCell colSpan={15} className="text-center text-xs text-zinc-500 py-3">
+                      <TableCell colSpan={8} className="text-center text-xs text-zinc-500 py-3">
                         ... y {parsedLeads.length - 10} contactos más
                       </TableCell>
                     </TableRow>

@@ -20,6 +20,7 @@ interface LeadInput {
   source?: string;
   state?: string;
   industry?: string;
+  profileUrl?: string;
   linkedinUrl?: string;
   googleMapsUrl?: string;
 }
@@ -58,6 +59,7 @@ function sanitizeLead(raw: LeadInput) {
     category: cleanStr(raw.category),
     state: cleanStr(raw.state),
     industry: cleanStr(raw.industry),
+    profileUrl: cleanStr(raw.profileUrl),
     linkedinUrl: cleanStr(raw.linkedinUrl),
     googleMapsUrl: cleanStr(raw.googleMapsUrl),
   };

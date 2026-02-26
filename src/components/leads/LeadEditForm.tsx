@@ -129,171 +129,88 @@ export function LeadEditForm({ lead, onSaved }: LeadEditFormProps) {
 
   return (
     <div className="space-y-6">
+      {/* --- Contacto --- */}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Contacto</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Business Name */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-zinc-400 text-xs">Nombre del negocio</Label>
-          <Input
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Nombre del negocio"
-            className={inputClassName}
-          />
+          <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Nombre del negocio" className={inputClassName} />
         </div>
-
-        {/* First Name */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Nombre</Label>
-          <Input
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="Nombre de contacto"
-            className={inputClassName}
-          />
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Nombre de contacto" className={inputClassName} />
         </div>
-
-        {/* Last Name */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Apellido</Label>
-          <Input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Apellido"
-            className={inputClassName}
-          />
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Apellido" className={inputClassName} />
         </div>
-
-        {/* Contact Title */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Cargo</Label>
-          <Input
-            value={contactTitle}
-            onChange={(e) => setContactTitle(e.target.value)}
-            placeholder="CEO, Director, etc."
-            className={inputClassName}
-          />
+          <Input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="CEO, Director, etc." className={inputClassName} />
         </div>
+      </div>
 
-        {/* Email */}
+      {/* --- Datos de contacto --- */}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 pt-2">Datos de contacto</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Email</Label>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@ejemplo.com"
-            className={inputClassName}
-          />
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@ejemplo.com" className={inputClassName} />
         </div>
-
-        {/* Phone */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Telefono</Label>
-          <Input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+34 600 000 000"
-            className={inputClassName}
-          />
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+34 600 000 000" className={inputClassName} />
         </div>
-
-        {/* Website */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-zinc-400 text-xs">Website</Label>
-          <Input
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            placeholder="https://ejemplo.com"
-            className={inputClassName}
-          />
+          <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://ejemplo.com" className={inputClassName} />
         </div>
+      </div>
 
-        {/* Address */}
-        <div className="space-y-1.5">
+      {/* --- Ubicacion --- */}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 pt-2">Ubicacion</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-zinc-400 text-xs">Direccion</Label>
-          <Input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Calle, numero..."
-            className={inputClassName}
-          />
+          <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Calle, numero..." className={inputClassName} />
         </div>
-
-        {/* City */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Ciudad</Label>
-          <Input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Ciudad"
-            className={inputClassName}
-          />
+          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ciudad" className={inputClassName} />
         </div>
-
-        {/* State */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Estado / Provincia</Label>
-          <Input
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            placeholder="Estado o provincia"
-            className={inputClassName}
-          />
+          <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="Estado o provincia" className={inputClassName} />
         </div>
-
-        {/* Country */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Pais</Label>
-          <Input
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            placeholder="Pais"
-            className={inputClassName}
-          />
+          <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Pais" className={inputClassName} />
         </div>
+      </div>
 
-        {/* Category */}
+      {/* --- Negocio --- */}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 pt-2">Negocio</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Categoria</Label>
-          <Input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Restaurante, Agencia, etc."
-            className={inputClassName}
-          />
+          <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Restaurante, Agencia, etc." className={inputClassName} />
         </div>
-
-        {/* Industry */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Industria / Sector</Label>
-          <Input
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
-            placeholder="Tecnologia, Salud, etc."
-            className={inputClassName}
-          />
+          <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Tecnologia, Salud, etc." className={inputClassName} />
         </div>
+      </div>
 
-        {/* LinkedIn URL */}
+      {/* --- Links --- */}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 pt-2">Links</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">LinkedIn URL</Label>
-          <Input
-            value={linkedinUrl}
-            onChange={(e) => setLinkedinUrl(e.target.value)}
-            placeholder="https://linkedin.com/in/..."
-            className={inputClassName}
-          />
+          <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className={inputClassName} />
         </div>
-
-        {/* Google Maps URL */}
         <div className="space-y-1.5">
           <Label className="text-zinc-400 text-xs">Google Maps URL</Label>
-          <Input
-            value={googleMapsUrl}
-            onChange={(e) => setGoogleMapsUrl(e.target.value)}
-            placeholder="https://maps.google.com/..."
-            className={inputClassName}
-          />
+          <Input value={googleMapsUrl} onChange={(e) => setGoogleMapsUrl(e.target.value)} placeholder="https://maps.google.com/..." className={inputClassName} />
         </div>
       </div>
 
