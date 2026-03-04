@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { updateTemplate, deleteTemplate } from "@/lib/services/templates.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // PUT — Update template
 export async function PUT(
@@ -13,28 +14,13 @@ export async function PUT(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const template = await prisma.messageTemplate.findFirst({ where: { id, userId: user.id } });
-    if (!template) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-
     const body = await request.json();
-    const updated = await prisma.messageTemplate.update({
-      where: { id },
-      data: {
-        name: body.name,
-        channel: body.channel,
-        subject: body.subject,
-        bodyShort: body.bodyShort,
-        bodyLong: body.bodyLong,
-        useAI: body.useAI,
-        aiInstructions: body.aiInstructions,
-        includeVideo: body.includeVideo,
-        videoType: body.videoType,
-        videoId: body.videoId,
-      },
-    });
-
+    const updated = await updateTemplate(user.id, id, body);
     return NextResponse.json(updated);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Template PUT error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -51,12 +37,12 @@ export async function DELETE(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const template = await prisma.messageTemplate.findFirst({ where: { id, userId: user.id } });
-    if (!template) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-
-    await prisma.messageTemplate.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const result = await deleteTemplate(user.id, id);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Template DELETE error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

@@ -1,0 +1,21 @@
+import { NextRequest } from "next/server";
+import { startScrape } from "@/lib/services/scraping.service";
+import { apiGuard, apiSuccess, apiError } from "../_lib/response";
+
+// POST — Start a new scrape
+export async function POST(request: NextRequest) {
+  const guard = await apiGuard(request, "scraping");
+  if (!guard.ok) return guard.response;
+
+  try {
+    const body = await request.json();
+    const result = await startScrape(
+      guard.user.userId,
+      guard.user.email,
+      body
+    );
+    return apiSuccess(result, { status: 202, rateLimit: guard.rateLimit });
+  } catch (error) {
+    return apiError(error, guard.rateLimit);
+  }
+}

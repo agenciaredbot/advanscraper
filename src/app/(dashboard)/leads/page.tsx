@@ -72,6 +72,7 @@ export default function LeadsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [hasEmailFilter, setHasEmailFilter] = useState("all");
@@ -80,6 +81,43 @@ export default function LeadsPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showAddToList, setShowAddToList] = useState(false);
+
+  const effectiveCount = selectAllAcrossPages ? pagination.total : selectedIds.size;
+  const hasSelection = effectiveCount > 0;
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectAllAcrossPages(false);
+  };
+
+  // Build current filter params for /api/leads/ids
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set("isSaved", "true");
+    if (searchQuery) params.set("search", searchQuery);
+    if (sourceFilter !== "all") params.set("source", sourceFilter);
+    if (hasEmailFilter === "yes") params.set("hasEmail", "true");
+    if (hasEmailFilter === "phone") params.set("hasPhone", "true");
+    if (tagFilter !== "all") params.set("tagId", tagFilter);
+    return params;
+  }, [searchQuery, sourceFilter, hasEmailFilter, tagFilter]);
+
+  // Resolve all IDs matching current filters
+  const resolveAllIds = useCallback(async (): Promise<string[]> => {
+    const params = buildFilterParams();
+    const res = await fetch(`/api/leads/ids?${params}`);
+    if (!res.ok) throw new Error("Error fetching lead IDs");
+    const data = await res.json();
+    return data.ids;
+  }, [buildFilterParams]);
+
+  // Get effective IDs for bulk actions
+  const getEffectiveIds = useCallback(async (): Promise<string[]> => {
+    if (selectAllAcrossPages) {
+      return resolveAllIds();
+    }
+    return Array.from(selectedIds);
+  }, [selectAllAcrossPages, selectedIds, resolveAllIds]);
 
   // Fetch tags for the filter dropdown
   const fetchTags = useCallback(async () => {
@@ -129,21 +167,33 @@ export default function LeadsPage() {
     fetchLeads(1);
   }, [fetchLeads]);
 
+  // Reset selectAllAcrossPages when filters change
+  useEffect(() => {
+    setSelectAllAcrossPages(false);
+  }, [searchQuery, sourceFilter, hasEmailFilter, tagFilter]);
+
+  const handlePageChange = (page: number) => {
+    setSelectAllAcrossPages(false);
+    setSelectedIds(new Set());
+    fetchLeads(page);
+  };
+
   const handleUnsaveSelected = async () => {
-    if (selectedIds.size === 0) return;
-    if (!confirm(`¿Quitar ${selectedIds.size} leads de guardados?`)) return;
+    if (!hasSelection) return;
+    if (!confirm(`¿Quitar ${effectiveCount} leads de guardados?`)) return;
 
     try {
+      const ids = await getEffectiveIds();
       const res = await fetch("/api/leads/save", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadIds: Array.from(selectedIds) }),
+        body: JSON.stringify({ leadIds: ids }),
       });
 
       if (!res.ok) throw new Error("Error removing leads");
 
-      toast.success(`${selectedIds.size} leads removidos de guardados`);
-      setSelectedIds(new Set());
+      toast.success(`${ids.length} leads removidos de guardados`);
+      clearSelection();
       fetchLeads(pagination.page);
     } catch {
       toast.error("Error al quitar leads de guardados");
@@ -153,6 +203,23 @@ export default function LeadsPage() {
   const handleLeadClick = (lead: Lead) => {
     setSelectedLeadId(lead.id);
     setSheetOpen(true);
+  };
+
+  // For AddToListModal — resolve IDs if selectAllAcrossPages
+  const [resolvedIdsForList, setResolvedIdsForList] = useState<string[]>([]);
+  const handleShowAddToList = async () => {
+    if (selectAllAcrossPages) {
+      try {
+        const ids = await resolveAllIds();
+        setResolvedIdsForList(ids);
+      } catch {
+        toast.error("Error al obtener IDs");
+        return;
+      }
+    } else {
+      setResolvedIdsForList(Array.from(selectedIds));
+    }
+    setShowAddToList(true);
   };
 
   return (
@@ -165,10 +232,12 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {selectedIds.size > 0 && (
+          {hasSelection && (
             <>
               <span className="text-sm text-emerald-400 self-center mr-2">
-                {selectedIds.size} seleccionados
+                {selectAllAcrossPages
+                  ? `${pagination.total.toLocaleString()} seleccionados (todos)`
+                  : `${selectedIds.size} seleccionados`}
               </span>
               <Button
                 variant="outline"
@@ -182,7 +251,7 @@ export default function LeadsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowAddToList(true)}
+                onClick={handleShowAddToList}
                 className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
               >
                 <ListFilter className="mr-2 h-4 w-4" />
@@ -277,9 +346,15 @@ export default function LeadsPage() {
           leads={leads}
           pagination={pagination}
           selectedIds={selectedIds}
-          onSelectChange={setSelectedIds}
-          onPageChange={(page) => fetchLeads(page)}
+          onSelectChange={(ids) => {
+            setSelectedIds(ids);
+            if (ids.size === 0) setSelectAllAcrossPages(false);
+          }}
+          onPageChange={handlePageChange}
           onLeadClick={handleLeadClick}
+          selectAllAcrossPages={selectAllAcrossPages}
+          onSelectAllAcrossPages={() => setSelectAllAcrossPages(true)}
+          onClearSelectAll={clearSelection}
         />
       )}
 
@@ -295,7 +370,7 @@ export default function LeadsPage() {
       <AddToListModal
         open={showAddToList}
         onOpenChange={setShowAddToList}
-        leadIds={Array.from(selectedIds)}
+        leadIds={resolvedIdsForList}
       />
     </div>
   );

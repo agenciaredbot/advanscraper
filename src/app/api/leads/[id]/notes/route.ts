@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { listNotes, createNote } from "@/lib/services/leads.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // GET — List notes for a lead
 export async function GET(
@@ -9,41 +10,18 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-
-    // Verify lead belongs to user
-    const lead = await prisma.lead.findFirst({
-      where: { id, userId: user.id },
-      select: { id: true },
-    });
-
-    if (!lead) {
-      return NextResponse.json(
-        { error: "Lead no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    const notes = await prisma.leadNote.findMany({
-      where: { leadId: id },
-      orderBy: { createdAt: "desc" },
-    });
-
+    const notes = await listNotes(user.id, id);
     return NextResponse.json(notes);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Notes GET error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
@@ -54,51 +32,18 @@ export async function POST(
 ) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
     const { content } = (await request.json()) as { content?: string };
-
-    if (!content || content.trim().length === 0) {
-      return NextResponse.json(
-        { error: "El contenido es requerido" },
-        { status: 400 }
-      );
-    }
-
-    // Verify lead belongs to user
-    const lead = await prisma.lead.findFirst({
-      where: { id, userId: user.id },
-      select: { id: true },
-    });
-
-    if (!lead) {
-      return NextResponse.json(
-        { error: "Lead no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    const note = await prisma.leadNote.create({
-      data: {
-        leadId: id,
-        userId: user.id,
-        content: content.trim(),
-      },
-    });
-
+    const note = await createNote(user.id, id, content || "");
     return NextResponse.json(note);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Note POST error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

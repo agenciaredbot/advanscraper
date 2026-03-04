@@ -29,6 +29,11 @@ import {
   CheckCircle,
   XCircle,
   QrCode,
+  Plus,
+  Trash2,
+  Copy,
+  Globe,
+  Clock,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -51,6 +56,16 @@ interface WhatsAppStatus {
   connected: boolean;
   qrCode?: string;
   phone?: string;
+}
+
+interface PublicApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  createdAt: string;
+  isActive: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +151,14 @@ export default function SettingsPage() {
   const [waitingForScan, setWaitingForScan] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ----- Public API keys state -----
+  const [publicApiKeys, setPublicApiKeys] = useState<PublicApiKey[]>([]);
+  const [loadingPublicKeys, setLoadingPublicKeys] = useState(true);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyRevealed, setNewKeyRevealed] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
   // =========================================================================
   // Fetch profile
   // =========================================================================
@@ -185,13 +208,31 @@ export default function SettingsPage() {
   }, []);
 
   // =========================================================================
+  // Fetch Public API Keys
+  // =========================================================================
+
+  const fetchPublicApiKeys = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings/api-keys");
+      if (!res.ok) throw new Error("Error al cargar API keys");
+      const data = await res.json();
+      setPublicApiKeys(data.keys || []);
+    } catch {
+      // Silently fail — section will show empty
+    } finally {
+      setLoadingPublicKeys(false);
+    }
+  }, []);
+
+  // =========================================================================
   // Effects
   // =========================================================================
 
   useEffect(() => {
     fetchProfile();
     fetchWaStatus();
-  }, [fetchProfile, fetchWaStatus]);
+    fetchPublicApiKeys();
+  }, [fetchProfile, fetchWaStatus, fetchPublicApiKeys]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -329,6 +370,56 @@ export default function SettingsPage() {
 
   const updateApiKeyValue = (keyId: string, value: string) => {
     setApiKeyValues((prev) => ({ ...prev, [keyId]: value }));
+  };
+
+  // ----- Public API key handlers -----
+
+  const handleCreatePublicKey = async () => {
+    if (!newKeyName.trim()) {
+      toast.warning("Ingresa un nombre para la API key");
+      return;
+    }
+
+    setCreatingKey(true);
+    try {
+      const res = await fetch("/api/settings/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newKeyName.trim() }),
+      });
+      if (!res.ok) throw new Error("Error al crear API key");
+      const data = await res.json();
+
+      if (data.rawKey) {
+        setNewKeyRevealed(data.rawKey);
+        toast.success("API key creada. Copiala ahora — no se mostrara de nuevo.");
+      }
+
+      setNewKeyName("");
+      fetchPublicApiKeys();
+    } catch {
+      toast.error("Error al crear la API key");
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const handleRevokePublicKey = async (keyId: string) => {
+    try {
+      const res = await fetch(`/api/settings/api-keys/${keyId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Error al revocar");
+      toast.success("API key revocada");
+      setPublicApiKeys((prev) => prev.filter((k) => k.id !== keyId));
+    } catch {
+      toast.error("Error al revocar la API key");
+    }
+  };
+
+  const handleCopyKey = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copiado al portapapeles");
   };
 
   // =========================================================================
@@ -537,7 +628,166 @@ export default function SettingsPage() {
       <Separator className="bg-zinc-800" />
 
       {/* ================================================================= */}
-      {/* 3. WhatsApp */}
+      {/* 3. API Publica (API Keys) */}
+      {/* ================================================================= */}
+
+      <Card className="border-zinc-800 bg-zinc-900/50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-zinc-100 flex items-center gap-2">
+                <Globe className="h-5 w-5 text-blue-400" />
+                API Publica
+              </CardTitle>
+              <CardDescription className="text-zinc-400 mt-1">
+                Genera API keys para acceder a AdvanScraper desde otras aplicaciones via REST API
+              </CardDescription>
+            </div>
+            {!showCreateForm && (
+              <Button
+                onClick={() => setShowCreateForm(true)}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva Key
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Revealed key banner */}
+          {newKeyRevealed && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+              <p className="text-sm font-medium text-amber-300">
+                Tu nueva API key (copiala ahora — no se mostrara de nuevo):
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded bg-zinc-900 px-3 py-2 text-xs text-emerald-400 font-mono break-all">
+                  {newKeyRevealed}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopyKey(newKeyRevealed)}
+                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 shrink-0"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setNewKeyRevealed(null)}
+                className="text-zinc-400 hover:text-zinc-200 text-xs"
+              >
+                Ya la copie, cerrar
+              </Button>
+            </div>
+          )}
+
+          {/* Create form */}
+          {showCreateForm && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+              <Label className="text-zinc-300">Nombre de la key</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="ej: Mi App, Agente IA, Zapier..."
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreatePublicKey();
+                  }}
+                />
+                <Button
+                  onClick={handleCreatePublicKey}
+                  disabled={creatingKey}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                >
+                  {creatingKey ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Crear
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewKeyName("");
+                  }}
+                  className="text-zinc-400 hover:text-zinc-200 shrink-0"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Keys list */}
+          {loadingPublicKeys ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+            </div>
+          ) : publicApiKeys.length === 0 ? (
+            <div className="text-center py-8 text-zinc-500 text-sm">
+              No tienes API keys creadas. Genera una para empezar a usar la API.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {publicApiKeys.map((apiKey) => (
+                <div
+                  key={apiKey.id}
+                  className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/30 px-4 py-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Key className="h-4 w-4 text-blue-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-200 truncate">
+                        {apiKey.name}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <code className="font-mono">{apiKey.keyPrefix}</code>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {apiKey.lastUsedAt
+                            ? `Usado ${new Date(apiKey.lastUsedAt).toLocaleDateString("es")}`
+                            : "Nunca usado"}
+                        </span>
+                        <span>
+                          Creada {new Date(apiKey.createdAt).toLocaleDateString("es")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRevokePublicKey(apiKey.id)}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Usage hint */}
+          <div className="rounded-lg border border-zinc-800/50 bg-zinc-950/50 p-3">
+            <p className="text-xs text-zinc-500 font-mono">
+              curl -H &quot;Authorization: Bearer ask_...&quot; {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/api/v1/leads
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator className="bg-zinc-800" />
+
+      {/* ================================================================= */}
+      {/* 4. WhatsApp */}
       {/* ================================================================= */}
 
       <Card className="border-zinc-800 bg-zinc-900/50">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { getLeadList, updateLeadList, deleteLeadList } from "@/lib/services/lists.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // GET — Get list with leads
 export async function GET(
@@ -13,22 +14,12 @@ export async function GET(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const list = await prisma.leadList.findFirst({
-      where: { id, userId: user.id },
-      include: {
-        items: {
-          include: {
-            lead: true,
-          },
-          orderBy: { addedAt: "desc" },
-        },
-        _count: { select: { items: true } },
-      },
-    });
-
-    if (!list) return NextResponse.json({ error: "Lista no encontrada" }, { status: 404 });
+    const list = await getLeadList(user.id, id);
     return NextResponse.json(list);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("List GET error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -45,18 +36,13 @@ export async function PUT(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const { name, description, color } = await request.json();
-
-    const list = await prisma.leadList.findFirst({ where: { id, userId: user.id } });
-    if (!list) return NextResponse.json({ error: "Lista no encontrada" }, { status: 404 });
-
-    const updated = await prisma.leadList.update({
-      where: { id },
-      data: { name, description, color },
-    });
-
+    const body = await request.json();
+    const updated = await updateLeadList(user.id, id, body);
     return NextResponse.json(updated);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("List PUT error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -73,12 +59,12 @@ export async function DELETE(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const list = await prisma.leadList.findFirst({ where: { id, userId: user.id } });
-    if (!list) return NextResponse.json({ error: "Lista no encontrada" }, { status: 404 });
-
-    await prisma.leadList.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const result = await deleteLeadList(user.id, id);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("List DELETE error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

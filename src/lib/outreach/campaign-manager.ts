@@ -35,7 +35,9 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
     });
 
     if (!campaign) throw new Error("Campaña no encontrada");
-    if (!campaign.template) throw new Error("Campaña sin template");
+    if (!campaign.template && !campaign.useAI) {
+      throw new Error("Campaña sin template. Asigna un template o activa useAI.");
+    }
     if (campaign.campaignLeads.length === 0) throw new Error("No hay leads pendientes");
 
     // Update campaign status
@@ -77,11 +79,11 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
         let subject: string;
 
         if (campaign.useAI && apiKeys.anthropicApiKey) {
-          // Generate with AI
+          // Generate with AI (with or without template as base)
           const generated = await generateMessage(
             {
               channel: "email",
-              templateBase: campaign.template.bodyLong,
+              templateBase: campaign.template?.bodyLong || undefined,
               lead: leadContext,
               instructions: campaign.aiInstructions || undefined,
               includeVideo: campaign.includeVideo,
@@ -90,13 +92,15 @@ export async function runEmailCampaign(options: RunCampaignOptions) {
             apiKeys.anthropicApiKey
           );
           messageBody = generated.messageLong;
-          subject = generated.subject || campaign.template.subject || "Propuesta";
-        } else {
-          // Simple placeholder replacement
+          subject = generated.subject || campaign.template?.subject || "Propuesta";
+        } else if (campaign.template) {
+          // Simple placeholder replacement (requires template)
           messageBody = replacePlaceholders(campaign.template.bodyLong, leadContext);
           subject = campaign.template.subject
             ? replacePlaceholders(campaign.template.subject, leadContext)
             : "Propuesta";
+        } else {
+          throw new Error("Campaña sin template y sin AI activado");
         }
 
         if (!lead.email) {

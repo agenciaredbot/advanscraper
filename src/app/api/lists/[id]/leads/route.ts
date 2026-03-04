@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { addLeadsToList, removeLeadsFromList } from "@/lib/services/lists.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // POST — Add leads to list
 export async function POST(
@@ -14,30 +15,12 @@ export async function POST(
 
     const { id: listId } = await params;
     const { leadIds } = await request.json();
-
-    if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
-      return NextResponse.json({ error: "leadIds requerido (array)" }, { status: 400 });
-    }
-
-    // Verify list belongs to user
-    const list = await prisma.leadList.findFirst({ where: { id: listId, userId: user.id } });
-    if (!list) return NextResponse.json({ error: "Lista no encontrada" }, { status: 404 });
-
-    // Add leads (skip duplicates)
-    let addedCount = 0;
-    for (const leadId of leadIds) {
-      try {
-        await prisma.leadListItem.create({
-          data: { leadId, listId },
-        });
-        addedCount++;
-      } catch {
-        // Duplicate — already in list
-      }
-    }
-
-    return NextResponse.json({ success: true, addedCount });
+    const result = await addLeadsToList(user.id, listId, leadIds || []);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Add leads to list error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -55,24 +38,12 @@ export async function DELETE(
 
     const { id: listId } = await params;
     const { leadIds } = await request.json();
-
-    if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
-      return NextResponse.json({ error: "leadIds requerido (array)" }, { status: 400 });
-    }
-
-    const list = await prisma.leadList.findFirst({ where: { id: listId, userId: user.id } });
-    if (!list) return NextResponse.json({ error: "Lista no encontrada" }, { status: 404 });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await prisma.leadListItem.deleteMany({
-      where: {
-        listId,
-        leadId: { in: leadIds },
-      } as any,
-    });
-
-    return NextResponse.json({ success: true });
+    const result = await removeLeadsFromList(user.id, listId, leadIds || []);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Remove leads from list error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

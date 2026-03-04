@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { getCampaign, deleteCampaign } from "@/lib/services/campaigns.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // GET — Campaign detail
 export async function GET(
@@ -13,27 +14,12 @@ export async function GET(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const campaign = await prisma.campaign.findFirst({
-      where: { id, userId: user.id },
-      include: {
-        template: true,
-        campaignLeads: {
-          include: {
-            lead: {
-              select: {
-                id: true, businessName: true, contactPerson: true, firstName: true, lastName: true,
-                email: true, phone: true, city: true, state: true, industry: true, linkedinUrl: true, googleMapsUrl: true,
-              },
-            },
-          },
-          orderBy: { sentAt: "desc" },
-        },
-      },
-    });
-
-    if (!campaign) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    const campaign = await getCampaign(user.id, id);
     return NextResponse.json(campaign);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Campaign GET error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -50,12 +36,12 @@ export async function DELETE(
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const campaign = await prisma.campaign.findFirst({ where: { id, userId: user.id } });
-    if (!campaign) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
-
-    await prisma.campaign.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const result = await deleteCampaign(user.id, id);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Campaign DELETE error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

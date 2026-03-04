@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma, getOrCreateProfile } from "@/lib/db";
-import { generateMessage } from "@/lib/ai/message-generator";
-import type { GenerateMessageRequest } from "@/lib/ai/types";
+import { generateAIMessage } from "@/lib/services/ai.service";
+import { ServiceError } from "@/lib/services/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,29 +9,13 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-    const body: GenerateMessageRequest = await request.json();
-
-    if (!body.channel || !body.lead) {
-      return NextResponse.json(
-        { error: "Campos 'channel' y 'lead' son obligatorios" },
-        { status: 400 }
-      );
-    }
-
-    // Get user's API key if available
-    const profile = await getOrCreateProfile(user.id, user.email ?? "");
-    const apiKey = profile.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Configura tu API key de Anthropic en Settings o .env" },
-        { status: 400 }
-      );
-    }
-
-    const result = await generateMessage(body, apiKey);
-
+    const body = await request.json();
+    const result = await generateAIMessage(user.id, user.email ?? "", body);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("AI generate error:", error);
     const msg = error instanceof Error ? error.message : "Error generando mensaje";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -58,6 +57,9 @@ interface ResultsTableProps {
   onSelectChange: (ids: Set<string>) => void;
   onPageChange: (page: number) => void;
   onLeadClick?: (lead: Lead) => void;
+  selectAllAcrossPages?: boolean;
+  onSelectAllAcrossPages?: () => void;
+  onClearSelectAll?: () => void;
 }
 
 const sourceLabels: Record<string, { label: string; color: string }> = {
@@ -77,11 +79,21 @@ export function ResultsTable({
   onSelectChange,
   onPageChange,
   onLeadClick,
+  selectAllAcrossPages,
+  onSelectAllAcrossPages,
+  onClearSelectAll,
 }: ResultsTableProps) {
-  const allSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
+  const allPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
+  const allSelected = allPageSelected || !!selectAllAcrossPages;
+  const showSelectAllBanner = allPageSelected && pagination.total > leads.length && !selectAllAcrossPages;
+  const showAllSelectedBanner = !!selectAllAcrossPages;
 
   const toggleAll = () => {
-    if (allSelected) {
+    if (selectAllAcrossPages) {
+      onClearSelectAll?.();
+      return;
+    }
+    if (allPageSelected) {
       onSelectChange(new Set());
     } else {
       onSelectChange(new Set(leads.map((l) => l.id)));
@@ -111,6 +123,30 @@ export function ResultsTable({
 
   return (
     <div className="space-y-4">
+      {/* Select All Across Pages Banner */}
+      {showSelectAllBanner && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm text-zinc-300">
+          <span>Los {leads.length} leads de esta pagina estan seleccionados.</span>
+          <button
+            onClick={() => onSelectAllAcrossPages?.()}
+            className="font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
+          >
+            Seleccionar los {pagination.total.toLocaleString()} leads
+          </button>
+        </div>
+      )}
+      {showAllSelectedBanner && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-zinc-300">
+          <span>Los {pagination.total.toLocaleString()} leads estan seleccionados.</span>
+          <button
+            onClick={() => onClearSelectAll?.()}
+            className="font-semibold text-zinc-400 hover:text-zinc-300 underline underline-offset-2"
+          >
+            Limpiar seleccion
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-zinc-800 overflow-hidden">
         <Table>
           <TableHeader>

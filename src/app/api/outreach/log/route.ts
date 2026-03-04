@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db";
+import { listOutreachLogs, logOutreach } from "@/lib/services/outreach.service";
+import { ServiceError } from "@/lib/services/errors";
 
 // GET — Outreach history
 export async function GET(request: NextRequest) {
@@ -10,34 +11,24 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
-    const channel = searchParams.get("channel");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { userId: user.id };
-    if (channel) where.channel = channel;
-
-    const [logs, total] = await Promise.all([
-      prisma.outreachLog.findMany({
-        where,
-        orderBy: { sentAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          lead: {
-            select: { businessName: true, contactPerson: true, firstName: true, lastName: true, email: true, profileUrl: true, state: true, industry: true, linkedinUrl: true, googleMapsUrl: true },
-          },
-        },
-      }),
-      prisma.outreachLog.count({ where }),
-    ]);
+    const result = await listOutreachLogs(
+      user.id,
+      { channel: searchParams.get("channel") || undefined },
+      {
+        page: parseInt(searchParams.get("page") || "1", 10),
+        limit: parseInt(searchParams.get("limit") || "20", 10),
+      }
+    );
 
     return NextResponse.json({
-      logs,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      logs: result.data,
+      pagination: result.pagination,
     });
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Outreach log GET error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -51,29 +42,12 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const body = await request.json();
-    const { leadId, channel, action, messagePreview, videoLink } = body;
-
-    if (!leadId || !channel || !action) {
-      return NextResponse.json(
-        { error: "leadId, channel y action son obligatorios" },
-        { status: 400 }
-      );
-    }
-
-    const log = await prisma.outreachLog.create({
-      data: {
-        userId: user.id,
-        leadId,
-        channel,
-        action,
-        messagePreview: messagePreview || null,
-        videoLink: videoLink || null,
-        status: "sent",
-      },
-    });
-
+    const log = await logOutreach(user.id, body);
     return NextResponse.json(log, { status: 201 });
   } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Outreach log POST error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

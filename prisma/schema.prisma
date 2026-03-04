@@ -32,6 +32,7 @@ model Profile {
   campaigns      Campaign[]
   leadTags       LeadTag[]
   leadNotes      LeadNote[]
+  apiKeys        ApiKey[]
 }
 
 model Search {
@@ -302,6 +303,24 @@ model LeadNote {
 
   @@index([leadId])
   @@index([userId])
+}
+
+// API Keys para autenticación máquina-a-máquina (API pública + agentes)
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyHash     String    @unique     // SHA-256 del key raw
+  keyPrefix   String                // "ask_abc12..." (primeros 8 chars visibles)
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([keyHash])
 }
 
 // System-level settings (API keys, configuration)
